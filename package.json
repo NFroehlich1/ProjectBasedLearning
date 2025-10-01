@@ -1,0 +1,24 @@
+{
+  "name": "project-based-learning-website",
+  "version": "1.0.0",
+  "description": "Interactive Project-Based Learning website with ElevenLabs AI assistant",
+  "main": "index.html",
+  "scripts": {
+    "start": "live-server --port=8080 --open=index.html",
+    "dev": "live-server --port=8080 --open=index.html",
+    "serve": "http-server -p 8080 -o"
+  },
+  "keywords": [
+    "education",
+    "project-based-learning",
+    "pbl",
+    "elevenlabs"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "live-server": "^1.2.2"
+  }
+}
+

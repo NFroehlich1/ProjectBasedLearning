@@ -1,0 +1,430 @@
+/* ================================
+   Global Styles & Reset
+   ================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.7;
+    color: #1a202c;
+    background: #f7fafc;
+    min-height: 100vh;
+    padding: 0;
+}
+
+/* ================================
+   Container & Layout
+   ================================ */
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+/* ================================
+   Header Section
+   ================================ */
+
+.header {
+    background: #2d3748;
+    color: white;
+    padding: 80px 40px 60px;
+    border-bottom: 4px solid #2563eb;
+}
+
+.header h1,
+.header p {
+    max-width: 1100px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 40px;
+}
+
+.header h1 {
+    font-size: 3em;
+    margin-bottom: 12px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+}
+
+.header p {
+    font-size: 1.25em;
+    opacity: 0.9;
+    font-weight: 300;
+}
+
+/* ================================
+   Main Content
+   ================================ */
+
+.content {
+    padding: 60px 40px;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+/* ================================
+   Introduction Section
+   ================================ */
+
+.intro {
+    background: white;
+    padding: 40px;
+    margin-bottom: 60px;
+    border-left: 4px solid #2563eb;
+    border-top: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.intro h2 {
+    color: #1a202c;
+    margin-bottom: 20px;
+    font-size: 1.875em;
+    font-weight: 600;
+}
+
+.intro p {
+    font-size: 1.125em;
+    color: #4a5568;
+    line-height: 1.8;
+}
+
+/* ================================
+   Features Section
+   ================================ */
+
+.features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 30px;
+    margin-bottom: 60px;
+}
+
+.feature-card {
+    background: white;
+    padding: 32px 28px;
+    border: 1px solid #e2e8f0;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.feature-card:hover {
+    border-color: #2563eb;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+}
+
+.icon {
+    display: none;
+}
+
+.feature-card h3 {
+    color: #1a202c;
+    margin-bottom: 12px;
+    font-size: 1.25em;
+    font-weight: 600;
+}
+
+.feature-card p {
+    color: #4a5568;
+    font-size: 0.9375em;
+    line-height: 1.7;
+}
+
+/* ================================
+   Benefits Section
+   ================================ */
+
+.benefits {
+    background: #f8fafc;
+    padding: 50px 40px;
+    margin-bottom: 60px;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.benefits h2 {
+    color: #1a202c;
+    margin-bottom: 35px;
+    font-size: 1.875em;
+    font-weight: 600;
+}
+
+.benefits ul {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+}
+
+.benefits li {
+    padding: 16px 16px 16px 40px;
+    background: white;
+    position: relative;
+    font-size: 1em;
+    border: 1px solid #e2e8f0;
+    transition: border-color 0.2s ease;
+}
+
+.benefits li:hover {
+    border-color: #cbd5e0;
+}
+
+.benefits li::before {
+    content: "•";
+    position: absolute;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #2563eb;
+    font-weight: bold;
+    font-size: 1.5em;
+}
+
+/* ================================
+   Research & Downloads Section
+   ================================ */
+
+.research-section {
+    background: white;
+    padding: 60px 0;
+    margin-bottom: 60px;
+}
+
+.research-section h2 {
+    color: #1a202c;
+    font-size: 1.875em;
+    margin-bottom: 16px;
+    font-weight: 600;
+}
+
+.research-intro {
+    font-size: 1.0625em;
+    color: #4a5568;
+    margin-bottom: 40px;
+    line-height: 1.7;
+}
+
+.downloads-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 24px;
+}
+
+.download-card {
+    background: white;
+    padding: 28px;
+    border: 1px solid #e2e8f0;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.download-card:hover {
+    border-color: #2563eb;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+}
+
+.download-card.all-resources {
+    background: #2d3748;
+    color: white;
+    border-color: #2d3748;
+}
+
+.download-card.all-resources h4,
+.download-card.all-resources .description {
+    color: white;
+}
+
+.pdf-icon {
+    display: none;
+}
+
+.download-card h4 {
+    color: #1a202c;
+    font-size: 1.125em;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.author {
+    color: #2563eb;
+    font-weight: 500;
+    font-size: 0.875em;
+    margin-bottom: 12px;
+}
+
+.download-card .description {
+    color: #4a5568;
+    font-size: 0.9375em;
+    line-height: 1.6;
+    margin-bottom: 24px;
+    flex-grow: 1;
+}
+
+.download-btn {
+    display: inline-block;
+    background: #2563eb;
+    color: white;
+    padding: 10px 20px;
+    text-decoration: none;
+    font-weight: 500;
+    text-align: center;
+    transition: background 0.2s ease;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9375em;
+}
+
+.download-btn:hover {
+    background: #1d4ed8;
+}
+
+.download-btn.download-all {
+    background: white;
+    color: #2d3748;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.download-btn.download-all:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.download-icon {
+    margin-right: 5px;
+}
+
+/* ================================
+   AI Assistant Section
+   ================================ */
+
+.ai-assistant {
+    background: #2d3748;
+    color: white;
+    padding: 50px 40px;
+    text-align: center;
+    margin-top: 60px;
+    border-top: 4px solid #2563eb;
+}
+
+.ai-assistant h2 {
+    font-size: 1.875em;
+    margin-bottom: 16px;
+    font-weight: 600;
+}
+
+.ai-assistant p {
+    font-size: 1.125em;
+    margin-bottom: 8px;
+    opacity: 0.9;
+    font-weight: 300;
+}
+
+.ai-subtext {
+    font-size: 1em !important;
+    opacity: 0.75 !important;
+}
+
+/* ================================
+   Footer
+   ================================ */
+
+.footer {
+    background: #1a202c;
+    color: #a0aec0;
+    text-align: center;
+    padding: 30px;
+    font-size: 0.875em;
+}
+
+/* ================================
+   Responsive Design
+   ================================ */
+
+@media (max-width: 768px) {
+    .header {
+        padding: 50px 30px 40px;
+    }
+
+    .header h1 {
+        font-size: 2em;
+    }
+
+    .header p {
+        font-size: 1.1em;
+    }
+
+    .content {
+        padding: 40px 25px;
+    }
+
+    .research-section {
+        padding: 40px 0;
+    }
+
+    .features,
+    .downloads-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .benefits {
+        padding: 40px 25px;
+    }
+
+    .benefits ul {
+        grid-template-columns: 1fr;
+    }
+
+    .intro h2,
+    .benefits h2,
+    .research-section h2 {
+        font-size: 1.5em;
+    }
+
+    .feature-card {
+        padding: 24px;
+    }
+}
+
+@media (max-width: 480px) {
+    .header {
+        padding: 40px 20px 30px;
+    }
+
+    .header h1 {
+        font-size: 1.75em;
+    }
+
+    .header p {
+        font-size: 1em;
+    }
+
+    .content {
+        padding: 30px 20px;
+    }
+
+    .intro {
+        padding: 30px 20px;
+    }
+
+    .benefits {
+        padding: 35px 20px;
+    }
+
+    .ai-assistant {
+        padding: 40px 20px;
+    }
+
+    .ai-assistant h2 {
+        font-size: 1.5em;
+    }
+}
+
