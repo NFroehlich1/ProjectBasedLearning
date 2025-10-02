@@ -18,7 +18,10 @@ Projekt-123/
 ├── index.html                          # Main HTML file
 ├── styles.css                          # CSS stylesheet
 ├── script.js                           # JavaScript functionality
+├── package.json                        # npm configuration
 ├── README.md                           # This file
+├── ELEVENLABS_INTEGRATION.md          # AI integration guide
+├── .gitignore                         # Git ignore rules
 └── Research Papers/
     ├── Blimenfeld et al. 1991_Motivating_project_based_learning_Sustai.pdf
     ├── Condlife et al. 2017_PBL Review.pdf
@@ -72,6 +75,21 @@ The website includes an ElevenLabs conversational AI widget that can:
 - Provide personalized guidance
 
 **Agent ID**: `agent_3701k6gsym8hfrzbzb4cz2g9r6xj`
+
+### AI Answer Textbox
+
+A dedicated section displays AI responses in a copy-paste ready textbox:
+- **Automatic Timestamps**: Each answer is timestamped
+- **Copy to Clipboard**: One-click copying of all content
+- **Clear Function**: Remove answers when done
+- **Persistent History**: Multiple answers saved in the textbox
+
+**API for Integration**:
+```javascript
+window.writeToTextBox("Your answer text here");
+```
+
+See `ELEVENLABS_INTEGRATION.md` for detailed integration instructions.
 
 ## 🎨 Customization
 

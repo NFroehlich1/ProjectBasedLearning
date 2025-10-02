@@ -126,6 +126,32 @@
                 <p>Ask anything about Project-Based Learning and get instant, personalized answers.</p>
                 <p class="ai-subtext">Our AI assistant can discuss PBL theory, implementation strategies, research findings, and more!</p>
             </section>
+
+            <section class="answer-section">
+                <div class="answer-header">
+                    <h2>AI Assistant Answers</h2>
+                    <p>Detailed responses from your conversation will appear here for easy reference and copying.</p>
+                </div>
+                <div class="answer-container">
+                    <textarea 
+                        id="aiAnswerBox" 
+                        class="answer-textbox" 
+                        placeholder="Ask the AI assistant a question, and the detailed answer will appear here. You can then copy the text for your use."
+                        readonly
+                    ></textarea>
+                    <div class="answer-controls">
+                        <button id="copyBtn" class="control-btn" onclick="copyAnswer()">
+                            <span class="btn-icon">📋</span> Copy to Clipboard
+                        </button>
+                        <button id="clearBtn" class="control-btn secondary" onclick="clearAnswer()">
+                            <span class="btn-icon">🗑️</span> Clear
+                        </button>
+                    </div>
+                    <div id="copyNotification" class="copy-notification hidden">
+                        Copied to clipboard!
+                    </div>
+                </div>
+            </section>
         </main>
 
         <footer class="footer">
@@ -139,3 +165,4 @@
     <script src="script.js"></script>
 </body>
 </html>
+

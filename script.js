@@ -116,7 +116,156 @@ document.querySelectorAll('.download-btn').forEach(button => {
     });
 });
 
+// ============================================
+// AI Answer Box Functions
+// ============================================
+
+/**
+ * Writes text to the answer textbox
+ * This function can be called by ElevenLabs or other integrations
+ */
+function writeToTextBox(text) {
+    console.log('✅ writeToTextBox called with text:', text);
+    const answerBox = document.getElementById('aiAnswerBox');
+    
+    if (!answerBox) {
+        console.error('❌ Answer box not found!');
+        return;
+    }
+    
+    console.log('✅ Answer box found');
+    
+    // Add timestamp to the answer
+    const timestamp = new Date().toLocaleString();
+    const formattedText = `[${timestamp}]\n\n${text}\n\n${'='.repeat(50)}\n\n`;
+    
+    // Append to existing content or set new content
+    if (answerBox.value.trim()) {
+        answerBox.value = formattedText + answerBox.value;
+    } else {
+        answerBox.value = formattedText;
+    }
+    
+    console.log('✅ Text written to box');
+    
+    // Scroll to top to show new content
+    answerBox.scrollTop = 0;
+    
+    // Show brief highlight effect
+    answerBox.style.borderColor = '#10b981';
+    setTimeout(() => {
+        answerBox.style.borderColor = '#e2e8f0';
+    }, 1000);
+    
+    // Show success notification
+    showNotification('Answer added to textbox!');
+}
+
+/**
+ * Copy answer to clipboard
+ */
+function copyAnswer() {
+    const answerBox = document.getElementById('aiAnswerBox');
+    const notification = document.getElementById('copyNotification');
+    
+    if (answerBox && answerBox.value.trim()) {
+        // Copy to clipboard
+        answerBox.select();
+        document.execCommand('copy');
+        
+        // Show notification
+        notification.classList.remove('hidden');
+        setTimeout(() => {
+            notification.classList.add('hidden');
+        }, 2000);
+    }
+}
+
+/**
+ * Clear the answer textbox
+ */
+function clearAnswer() {
+    const answerBox = document.getElementById('aiAnswerBox');
+    if (answerBox && confirm('Are you sure you want to clear all answers?')) {
+        answerBox.value = '';
+    }
+}
+
+/**
+ * Global function that ElevenLabs can call to display answers
+ */
+window.displayAIAnswer = function(answer) {
+    writeToTextBox(answer);
+};
+
+// Make writeToTextBox globally accessible for ElevenLabs integration
+window.writeToTextBox = writeToTextBox;
+
+// ============================================
+// ElevenLabs Cross-Frame Communication
+// ============================================
+
+/**
+ * Listen for messages from ElevenLabs iframe
+ * This handles cross-origin communication from the AI widget
+ */
+window.addEventListener('message', function(event) {
+    // Log ALL messages for debugging
+    console.log('📨 Message received from:', event.origin);
+    console.log('📨 Message data:', event.data);
+    console.log('📨 Message type:', typeof event.data);
+    
+    try {
+        // Handle different message formats
+        let messageData = event.data;
+        
+        // If data is a string, try to parse it as JSON
+        if (typeof messageData === 'string') {
+            console.log('📨 String message, attempting to parse...');
+            try {
+                messageData = JSON.parse(messageData);
+                console.log('📨 Parsed to:', messageData);
+            } catch (e) {
+                console.log('📨 Not JSON, treating as plain text');
+                // If not JSON, treat as plain text
+                messageData = { text: messageData };
+            }
+        }
+        
+        // Check for writeToTextBox action
+        if (messageData && messageData.action === 'writeToTextBox' && messageData.text) {
+            console.log('✅ Found writeToTextBox action with text:', messageData.text);
+            writeToTextBox(messageData.text);
+            return;
+        }
+        
+        // Also check for direct text property
+        if (messageData && messageData.text && !messageData.action) {
+            console.log('✅ Found direct text property:', messageData.text);
+            writeToTextBox(messageData.text);
+            return;
+        }
+        
+        // Handle if entire message is just the text
+        if (typeof event.data === 'string' && event.data.length > 20) {
+            // Only write if it looks like actual content (not control messages)
+            if (!event.data.includes('elevenlabs') && !event.data.includes('convai')) {
+                console.log('✅ Writing long string message');
+                writeToTextBox(event.data);
+                return;
+            }
+        }
+        
+        console.log('⚠️ Message format not recognized, ignoring');
+        
+    } catch (error) {
+        console.error('❌ Error processing message:', error);
+    }
+});
+
 // Console welcome message
 console.log('%cProject-Based Learning Website', 'color: #2563eb; font-size: 18px; font-weight: 600;');
 console.log('%cPowered by modern web technologies and ElevenLabs AI.', 'color: #4a5568; font-size: 13px;');
+console.log('%cAPI Available: window.writeToTextBox(text) - Write answers to the textbox', 'color: #10b981; font-size: 12px;');
+console.log('%cListening for messages from ElevenLabs widget...', 'color: #10b981; font-size: 12px;');
 
