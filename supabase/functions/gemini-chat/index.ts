@@ -17,17 +17,17 @@ serve(async (req) => {
   try {
     console.log('=== Gemini Chat Function Started ===')
     
-    // Get API key from environment variable
-    const apiKey = Deno.env.get('GEMINI_API_KEY')
+    // Get API key from environment variable (try both naming conventions)
+    const apiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GEMINI-API-KEY')
     
     console.log('API Key check:', apiKey ? `Found (${apiKey.substring(0, 10)}...)` : 'NOT FOUND')
     
     if (!apiKey) {
-      console.error('GEMINI_API_KEY environment variable is not set')
+      console.error('GEMINI_API_KEY or GEMINI-API-KEY environment variable is not set')
       return new Response(
         JSON.stringify({ 
           error: 'Server configuration error: API key not found',
-          details: 'GEMINI_API_KEY secret is not configured'
+          details: 'GEMINI_API_KEY or GEMINI-API-KEY secret is not configured'
         }),
         { 
           status: 500,
@@ -80,46 +80,75 @@ ${userQuestion}
 Provide a clear, concise, and helpful answer.`
     }
 
-    // Call Google Gemini API
+    // Call Google Gemini API with fallback models
     console.log('Calling Gemini API...')
     
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`
+    // Try multiple models in order of preference
+    const modelsToTry = [
+      'gemini-2.0-flash-exp',
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-flash',
+      'gemini-1.5-pro-latest',
+      'gemini-pro'
+    ]
     
-    const response = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 2048,
+    let response = null
+    let usedModel = ''
+    
+    for (const model of modelsToTry) {
+      console.log(`Trying model: ${model}`)
+      
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
+      
+      try {
+        response = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: prompt
+              }]
+            }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 2048,
+            }
+          })
+        })
+        
+        if (response.ok) {
+          usedModel = model
+          console.log(`✅ Success with model: ${model}`)
+          break
+        } else {
+          console.log(`❌ Model ${model} failed with status: ${response.status}`)
         }
-      })
-    })
-
-    console.log('Gemini API response status:', response.status)
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Gemini API error:', response.status, errorText)
+      } catch (error) {
+        console.log(`❌ Model ${model} error:`, error.message)
+      }
+    }
+    
+    if (!response || !response.ok) {
+      const errorText = response ? await response.text() : 'No successful response from any model'
+      console.error('All Gemini models failed. Last error:', errorText)
       
       return new Response(
         JSON.stringify({ 
-          error: `Gemini API error: ${response.status}`,
-          details: errorText
+          error: `All Gemini models failed. Last status: ${response?.status || 'unknown'}`,
+          details: errorText,
+          triedModels: modelsToTry
         }),
         { 
-          status: response.status,
+          status: response?.status || 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
+
+    console.log('Gemini API response status:', response.status)
 
     const data = await response.json()
     console.log('Successfully fetched response from Gemini')
@@ -140,7 +169,7 @@ Provide a clear, concise, and helpful answer.`
     return new Response(
       JSON.stringify({ 
         answer: answerText,
-        model: 'gemini-pro'
+        model: usedModel || 'unknown'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
