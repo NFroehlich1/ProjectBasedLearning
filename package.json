@@ -1,24 +1,22 @@
 {
   "name": "project-based-learning-website",
   "version": "1.0.0",
-  "description": "Interactive Project-Based Learning website with ElevenLabs AI assistant",
-  "main": "index.html",
+  "description": "Project-Based Learning information website with ElevenLabs AI integration",
+  "type": "module",
   "scripts": {
     "start": "live-server --port=8080 --open=index.html",
     "dev": "live-server --port=8080 --open=index.html",
-    "serve": "http-server -p 8080 -o"
+    "serve": "http-server -p 8080 -o",
+    "upload-pdfs": "node upload-pdfs-to-gemini.js"
   },
-  "keywords": [
-    "education",
-    "project-based-learning",
-    "pbl",
-    "elevenlabs"
-  ],
+  "keywords": ["project-based-learning", "education", "ai"],
   "author": "",
   "license": "MIT",
   "devDependencies": {
     "http-server": "^14.1.1",
     "live-server": "^1.2.2"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0"
   }
 }
-

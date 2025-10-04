@@ -633,8 +633,10 @@ async function askGemini() {
         const data = await response.json();
         console.log('✅ Gemini response received');
         
-        // Display the answer
-        geminiAnswerText.textContent = data.answer;
+        // Parse Markdown and display the answer
+        const markdownAnswer = data.answer;
+        const htmlAnswer = marked.parse(markdownAnswer);
+        geminiAnswerText.innerHTML = htmlAnswer;
         geminiResponse.classList.remove('hidden');
         
         // Scroll to response

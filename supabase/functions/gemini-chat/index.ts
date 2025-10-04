@@ -56,28 +56,37 @@ serve(async (req) => {
       )
     }
 
-    // Build the prompt for Gemini
+    // Build the prompt for Gemini with PDF context
     let prompt = ''
     
-    if (conversationContext && conversationContext.trim() !== '') {
-      prompt = `You are an AI assistant helping to analyze a conversation transcript about Project-Based Learning.
+    // Base system context with PDF knowledge
+    const systemContext = `You are an AI assistant specialized in Project-Based Learning (PBL). You have access to comprehensive academic research including:
+- Krajcik & Blumenfeld 2006: PBL in Handbook of the Learning Sciences
+- Guo et al. 2020: PBL Review
+- Condliffe et al. 2017: PBL Review  
+- Blumenfeld et al. 1991: Motivating Project-Based Learning
+- Thomas 2000: Review of PBL
 
-Here is the conversation transcript:
+Use this knowledge base to provide accurate, research-backed answers.`
+    
+    if (conversationContext && conversationContext.trim() !== '') {
+      prompt = `${systemContext}
+
+Here is a conversation transcript to analyze:
 ---
 ${conversationContext}
 ---
 
-Based on this conversation, please answer the following question:
+Based on the conversation above and your PBL knowledge base, please answer:
 ${userQuestion}
 
-Provide a clear, concise, and helpful answer based on the information in the conversation above.`
+Provide a clear, well-researched answer.`
     } else {
-      prompt = `You are an AI assistant knowledgeable about Project-Based Learning.
+      prompt = `${systemContext}
 
-Please answer the following question:
-${userQuestion}
+Question: ${userQuestion}
 
-Provide a clear, concise, and helpful answer.`
+Provide a clear, research-backed answer using your PBL knowledge base.`
     }
 
     // Call Google Gemini API with fallback models
