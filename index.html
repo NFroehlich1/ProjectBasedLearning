@@ -126,34 +126,6 @@
                 <p>Ask anything about Project-Based Learning and get instant, personalized answers.</p>
                 <p class="ai-subtext">Our AI assistant can discuss PBL theory, implementation strategies, research findings, and more!</p>
             </section>
-
-            <section class="answer-section">
-                <div class="answer-header">
-                    <h2>Conversation Summaries & Notes</h2>
-                    <p>Save conversation summaries and important answers here for easy reference. Ask the AI: "Can you create a summary?" or wait until the end of your conversation.</p>
-                </div>
-                <div class="answer-container">
-                    <textarea 
-                        id="aiAnswerBox" 
-                        class="answer-textbox" 
-                        placeholder="At the end of your conversation, the AI will offer to create a summary. Simply copy and paste it here for your records. You can also manually paste any important responses you want to save."
-                    ></textarea>
-                    <div class="answer-controls">
-                        <button id="copyBtn" class="control-btn" onclick="copyAnswer()">
-                            <span class="btn-icon">📋</span> Copy to Clipboard
-                        </button>
-                        <button id="clearBtn" class="control-btn secondary" onclick="clearAnswer()">
-                            <span class="btn-icon">🗑️</span> Clear
-                        </button>
-                    </div>
-                    <div class="manual-save-hint">
-                        <p><strong>💡 Tip:</strong> Copy the AI's response from the chat and paste it here, or type/edit directly in the textbox above.</p>
-                    </div>
-                    <div id="copyNotification" class="copy-notification hidden">
-                        Copied to clipboard!
-                    </div>
-                </div>
-            </section>
         </main>
 
         <footer class="footer">
