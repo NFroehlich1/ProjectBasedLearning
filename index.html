@@ -140,12 +140,15 @@
                         <button id="clearArchive" class="control-btn secondary" onclick="clearArchive()">
                             🗑️ Clear
                         </button>
+                        <button id="copyArchive" class="control-btn secondary" onclick="copyArchiveText()">
+                            📋 Copy All
+                        </button>
                     </div>
-                    <textarea 
-                        id="conversationArchive" 
-                        class="archive-textbox" 
-                        placeholder="Click 'Load Last Conversation' to retrieve and save your completed AI conversations here."
-                    ></textarea>
+                    <div id="conversationChatView" class="chat-view">
+                        <div class="chat-placeholder">
+                            Click "Load Last Conversation" to display your conversation history here.
+                        </div>
+                    </div>
                     <div id="loadingNotification" class="loading-notification hidden">
                         Loading conversation...
                     </div>

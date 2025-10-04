@@ -348,9 +348,9 @@ document.addEventListener('DOMContentLoaded', function() {
 // ElevenLabs Conversation Archive
 // ============================================
 
-// Configuration - USER NEEDS TO SET THIS
+// Configuration - Supabase Edge Function (API Key secured in Supabase Secrets)
 const ELEVENLABS_CONFIG = {
-    apiKey: '', // USER MUST ADD THEIR API KEY HERE
+    functionUrl: 'https://rcfgpdrrnhltozrnsgic.supabase.co/functions/v1/get-elevenlabs-conversations',
     agentId: 'agent_3701k6gsym8hfrzbzb4cz2g9r6xj'
 };
 
@@ -358,41 +358,30 @@ const ELEVENLABS_CONFIG = {
  * Load the last completed conversation from ElevenLabs
  */
 async function loadLastConversation() {
-    const archiveBox = document.getElementById('conversationArchive');
+    const chatView = document.getElementById('conversationChatView');
     const loadingNotification = document.getElementById('loadingNotification');
-    
-    // Check if API key is set
-    if (!ELEVENLABS_CONFIG.apiKey || ELEVENLABS_CONFIG.apiKey === '') {
-        alert('Please set your ElevenLabs API key in script.js (ELEVENLABS_CONFIG.apiKey)');
-        console.error('API key not configured');
-        return;
-    }
     
     // Show loading
     loadingNotification.classList.remove('hidden');
     
     try {
-        console.log('📥 Fetching conversations...');
+        console.log('📥 Fetching conversations via Supabase Edge Function...');
         
-        // Step 1: Get list of conversations
+        // Step 1: Get list of conversations via Supabase Edge Function
         const conversationsResponse = await fetch(
-            `https://api.elevenlabs.io/v1/convai/conversations?agent_id=${ELEVENLABS_CONFIG.agentId}`,
-            {
-                headers: {
-                    'xi-api-key': ELEVENLABS_CONFIG.apiKey
-                }
-            }
+            `${ELEVENLABS_CONFIG.functionUrl}?agent_id=${ELEVENLABS_CONFIG.agentId}`
         );
         
         if (!conversationsResponse.ok) {
-            throw new Error(`Failed to fetch conversations: ${conversationsResponse.status}`);
+            const errorData = await conversationsResponse.json().catch(() => ({}));
+            throw new Error(errorData.error || `Failed to fetch conversations: ${conversationsResponse.status}`);
         }
         
         const conversationsData = await conversationsResponse.json();
         console.log('✅ Conversations fetched:', conversationsData);
         
         if (!conversationsData.conversations || conversationsData.conversations.length === 0) {
-            archiveBox.value = 'No conversations found yet. Start a conversation with the AI assistant first!';
+            chatView.innerHTML = '<div class="chat-placeholder">No conversations found yet. Start a conversation with the AI assistant first!</div>';
             loadingNotification.classList.add('hidden');
             return;
         }
@@ -403,84 +392,152 @@ async function loadLastConversation() {
         
         console.log(`📥 Fetching conversation details: ${conversationId}`);
         
-        // Step 2: Get full conversation details
+        // Step 2: Get full conversation details via Supabase Edge Function
         const conversationResponse = await fetch(
-            `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`,
-            {
-                headers: {
-                    'xi-api-key': ELEVENLABS_CONFIG.apiKey
-                }
-            }
+            `${ELEVENLABS_CONFIG.functionUrl}?agent_id=${ELEVENLABS_CONFIG.agentId}&conversation_id=${conversationId}`
         );
         
         if (!conversationResponse.ok) {
-            throw new Error(`Failed to fetch conversation details: ${conversationResponse.status}`);
+            const errorData = await conversationResponse.json().catch(() => ({}));
+            throw new Error(errorData.error || `Failed to fetch conversation details: ${conversationResponse.status}`);
         }
         
         const conversation = await conversationResponse.json();
         console.log('✅ Conversation details fetched:', conversation);
         
-        // Step 3: Format and display the conversation
-        const formattedConversation = formatConversation(conversation);
-        archiveBox.value = formattedConversation;
+        // Step 3: Display the conversation as chat bubbles
+        displayChatConversation(conversation);
         
         // Success notification
         showNotification('Conversation loaded successfully!');
         
     } catch (error) {
         console.error('❌ Error loading conversation:', error);
-        archiveBox.value = `Error loading conversation: ${error.message}\n\nPlease check:\n1. Your API key is correct\n2. You have conversations in ElevenLabs\n3. Your internet connection`;
+        chatView.innerHTML = `
+            <div class="chat-placeholder" style="color: #e53e3e;">
+                Error loading conversation: ${error.message}<br><br>
+                Please check:<br>
+                1. The Supabase Edge Function is deployed<br>
+                2. The ELEVENLABS_API_KEY secret is set in Supabase<br>
+                3. You have conversations in ElevenLabs<br>
+                4. Your internet connection
+            </div>
+        `;
     } finally {
         loadingNotification.classList.add('hidden');
     }
 }
 
 /**
- * Format conversation data into readable text
+ * Display conversation as chat bubbles (Social Media Style)
  */
-function formatConversation(conversation) {
-    const date = new Date(conversation.start_time_unix_secs * 1000);
-    const formattedDate = date.toLocaleString();
+function displayChatConversation(conversation) {
+    const chatView = document.getElementById('conversationChatView');
+    let html = '';
     
-    let formatted = `========================================\n`;
-    formatted += `PROJECT-BASED LEARNING CONSULTATION\n`;
-    formatted += `========================================\n\n`;
-    formatted += `Date: ${formattedDate}\n`;
-    formatted += `Conversation ID: ${conversation.conversation_id}\n`;
-    formatted += `Status: ${conversation.status}\n\n`;
-    formatted += `========================================\n`;
-    formatted += `CONVERSATION TRANSCRIPT\n`;
-    formatted += `========================================\n\n`;
-    
-    // Format each message in the conversation
-    if (conversation.transcript && conversation.transcript.length > 0) {
-        conversation.transcript.forEach((message, index) => {
-            const role = message.role === 'user' ? 'USER' : 'AI ASSISTANT';
-            const timestamp = message.timestamp ? new Date(message.timestamp * 1000).toLocaleTimeString() : '';
-            
-            formatted += `[${timestamp}] ${role}:\n`;
-            formatted += `${message.message}\n\n`;
+    // Add date header
+    if (conversation.start_time_unix_secs) {
+        const date = new Date(conversation.start_time_unix_secs * 1000);
+        const dateStr = date.toLocaleDateString('en-US', { 
+            weekday: 'long',
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric'
         });
-    } else {
-        formatted += 'No transcript available.\n\n';
+        const timeStr = date.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+        html += `<div class="chat-date-header">${dateStr} · ${timeStr}</div>`;
     }
     
-    formatted += `========================================\n`;
-    formatted += `END OF CONVERSATION\n`;
-    formatted += `========================================\n`;
+    // Display each message as a chat bubble
+    if (conversation.transcript && conversation.transcript.length > 0) {
+        conversation.transcript.forEach((message, index) => {
+            const isUser = message.role === 'user';
+            const role = isUser ? 'user' : 'assistant';
+            const label = isUser ? 'Speaker' : 'AI Assistant';
+            
+            html += `
+                <div class="chat-message ${role}">
+                    <div class="message-bubble">
+                        <div class="message-label">${label}</div>
+                        <div class="message-text">${escapeHtml(message.message)}</div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        // Add end marker
+        html += '<div class="chat-end">End of conversation</div>';
+    } else {
+        html += '<div class="chat-placeholder">No transcript available</div>';
+    }
     
-    return formatted;
+    chatView.innerHTML = html;
+    
+    // Scroll to bottom
+    chatView.scrollTop = chatView.scrollHeight;
 }
 
 /**
- * Clear the archive textbox
+ * Escape HTML to prevent XSS
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
+ * Clear the chat view
  */
 function clearArchive() {
-    const archiveBox = document.getElementById('conversationArchive');
+    const chatView = document.getElementById('conversationChatView');
     if (confirm('Are you sure you want to clear the conversation archive?')) {
-        archiveBox.value = '';
+        chatView.innerHTML = '<div class="chat-placeholder">Click "Load Last Conversation" to display your conversation history here.</div>';
         showNotification('Archive cleared');
     }
+}
+
+/**
+ * Copy all conversation text to clipboard
+ */
+function copyArchiveText() {
+    const chatView = document.getElementById('conversationChatView');
+    const messages = chatView.querySelectorAll('.chat-message');
+    
+    if (messages.length === 0) {
+        showNotification('No conversation to copy');
+        return;
+    }
+    
+    let text = '';
+    
+    // Get date header if exists
+    const dateHeader = chatView.querySelector('.chat-date-header');
+    if (dateHeader) {
+        text += `${dateHeader.textContent}\n\n`;
+        text += '─'.repeat(60) + '\n\n';
+    }
+    
+    // Get all messages
+    messages.forEach(msg => {
+        const label = msg.querySelector('.message-label').textContent;
+        const messageText = msg.querySelector('.message-text').textContent;
+        text += `${label}:\n${messageText}\n\n`;
+    });
+    
+    text += '─'.repeat(60) + '\n';
+    text += 'End of conversation\n';
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(text).then(() => {
+        showNotification('Conversation copied to clipboard!');
+    }).catch(err => {
+        console.error('Failed to copy:', err);
+        showNotification('Failed to copy to clipboard');
+    });
 }
 
 // Console welcome message
