@@ -652,8 +652,8 @@ async function askGemini() {
 
 // Console welcome message
 console.log('%cProject-Based Learning Website', 'color: #2563eb; font-size: 18px; font-weight: 600;');
-console.log('%cPowered by modern web technologies, ElevenLabs AI, and Google Gemini.', 'color: #4a5568; font-size: 13px;');
-console.log('%cFeatures: Conversation Archive, AI Q&A with Gemini', 'color: #10b981; font-size: 12px;');
+console.log('%cPowered by modern web technologies and AI.', 'color: #4a5568; font-size: 13px;');
+console.log('%cFeatures: Conversation Archive, AI Q&A', 'color: #10b981; font-size: 12px;');
 console.log('%cAPI Available: window.captureToTextBox(text) - Capture and write to textbox', 'color: #10b981; font-size: 12px;');
 console.log('%cListening for messages from ElevenLabs widget...', 'color: #10b981; font-size: 12px;');
 
