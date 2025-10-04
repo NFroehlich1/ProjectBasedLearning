@@ -355,7 +355,8 @@ const ELEVENLABS_CONFIG = {
 };
 
 const GEMINI_CONFIG = {
-    functionUrl: 'https://rcfgpdrrnhltozrnsgic.supabase.co/functions/v1/gemini-chat'
+    functionUrl: 'https://rcfgpdrrnhltozrnsgic.supabase.co/functions/v1/gemini-chat',
+    ragFunctionUrl: 'https://rcfgpdrrnhltozrnsgic.supabase.co/functions/v1/rag-chat'
 };
 
 /**
@@ -622,7 +623,50 @@ function addAiChatMessage(role, content) {
 }
 
 /**
- * Send AI question with conversation history
+ * Generate PDF hyperlink with text fragment navigation
+ */
+function generatePdfLink(source, index) {
+    const textSnippet = source.text_snippet.trim();
+    // Create link with text fragment identifier
+    const fragmentLink = `${source.document_url}#:~:text=${encodeURIComponent(textSnippet)}`;
+    return {
+        url: fragmentLink,
+        display: `[${index}]`,
+        title: `${source.document_name} - Page ${source.page_number}`
+    };
+}
+
+/**
+ * Process grounded response with source citations
+ */
+function processGroundedResponse(generatedText, sources) {
+    let processedText = generatedText;
+    
+    // Replace citation markers [1], [2], etc. with hyperlinks
+    sources.forEach((source, index) => {
+        const citationIndex = index + 1;
+        const link = generatePdfLink(source, citationIndex);
+        
+        // Replace [1] with clickable link
+        const citationPattern = new RegExp(`\\[${citationIndex}\\]`, 'g');
+        const linkHtml = `<a href="${link.url}" target="_blank" title="${link.title}" class="source-link">[${citationIndex}]</a>`;
+        processedText = processedText.replace(citationPattern, linkHtml);
+    });
+    
+    // Add sources section at the end
+    if (sources.length > 0) {
+        processedText += '\n\n---\n\n**Sources:**\n\n';
+        sources.forEach((source, index) => {
+            const link = generatePdfLink(source, index + 1);
+            processedText += `${link.display} [${source.document_name}](${link.url}) - Page ${source.page_number}\n\n`;
+        });
+    }
+    
+    return processedText;
+}
+
+/**
+ * Send AI question with RAG (Retrieval-Augmented Generation)
  */
 async function sendAiQuestion() {
     const questionInput = document.getElementById('aiQuestionInput');
@@ -648,18 +692,15 @@ async function sendAiQuestion() {
     sendButton.disabled = true;
     
     try {
-        console.log('🤖 Sending question to AI...');
+        console.log('🤖 Sending question to RAG system...');
         
-        // Get ElevenLabs conversation context if available
-        const elevenLabsContext = extractConversationText();
-        
-        const response = await fetch(GEMINI_CONFIG.functionUrl, {
+        // Use RAG function for research-backed answers
+        const response = await fetch(GEMINI_CONFIG.ragFunctionUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                conversationContext: elevenLabsContext,
                 userQuestion: question,
                 chatHistory: aiChatHistory.slice(0, -1) // Send all history except current question
             })
@@ -671,11 +712,14 @@ async function sendAiQuestion() {
         }
         
         const data = await response.json();
-        console.log('✅ AI response received');
+        console.log('✅ RAG response received with', data.num_sources, 'sources');
         
-        // Add assistant message to chat
-        addAiChatMessage('assistant', data.answer);
-        aiChatHistory.push({ role: 'assistant', content: data.answer });
+        // Process response with source citations
+        const processedAnswer = processGroundedResponse(data.generated_text, data.sources || []);
+        
+        // Add assistant message to chat with clickable sources
+        addAiChatMessage('assistant', processedAnswer);
+        aiChatHistory.push({ role: 'assistant', content: data.generated_text });
         
     } catch (error) {
         console.error('❌ Error:', error);

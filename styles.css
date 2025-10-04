@@ -820,6 +820,29 @@ body {
     color: inherit;
 }
 
+/* Source citation links */
+.source-link {
+    color: #8b5cf6;
+    text-decoration: none;
+    font-weight: 600;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+}
+
+.source-link:hover {
+    background: #f3e8ff;
+    text-decoration: underline;
+}
+
+.ai-chat-message.user .source-link {
+    color: #fbbf24;
+}
+
+.ai-chat-message.user .source-link:hover {
+    background: rgba(251, 191, 36, 0.2);
+}
+
 /* Input Area */
 .ai-input-area {
     display: flex;
