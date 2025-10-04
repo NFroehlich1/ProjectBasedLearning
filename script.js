@@ -202,6 +202,44 @@ window.displayAIAnswer = function(answer) {
 window.writeToTextBox = writeToTextBox;
 
 // ============================================
+// ElevenLabs Client Tool Registration
+// ============================================
+
+/**
+ * Register the writeToTextBox tool with ElevenLabs
+ * This makes it available as a client_action tool
+ */
+window.addEventListener('DOMContentLoaded', function() {
+    // Wait for ElevenLabs widget to load
+    setTimeout(function() {
+        // Register the client tool
+        if (window.ElevenLabsConvAI) {
+            window.ElevenLabsConvAI.registerClientTool('writeToTextBox', function(params) {
+                console.log('✅ ElevenLabs called writeToTextBox with:', params);
+                if (params && params.text) {
+                    writeToTextBox(params.text);
+                }
+            });
+            console.log('✅ Client tool "writeToTextBox" registered with ElevenLabs');
+        } else {
+            console.log('⚠️ ElevenLabs ConvAI not found yet, will try alternative method');
+            
+            // Alternative: Make tool available globally for ElevenLabs to find
+            window.clientTools = window.clientTools || {};
+            window.clientTools.writeToTextBox = function(params) {
+                console.log('✅ Client tool called via window.clientTools:', params);
+                if (params && params.text) {
+                    writeToTextBox(params.text);
+                } else if (typeof params === 'string') {
+                    writeToTextBox(params);
+                }
+            };
+            console.log('✅ Client tool registered via window.clientTools');
+        }
+    }, 2000);
+});
+
+// ============================================
 // ElevenLabs Cross-Frame Communication
 // ============================================
 
@@ -263,9 +301,59 @@ window.addEventListener('message', function(event) {
     }
 });
 
+// ============================================
+// Auto-detect and capture ElevenLabs responses
+// ============================================
+
+/**
+ * Monitor for ElevenLabs conversation events
+ * Automatically capture responses that should go to textbox
+ */
+let captureNextResponse = false;
+
+// Listen for any indication that user wants textbox output
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if there's a way to hook into ElevenLabs events
+    console.log('🔍 Looking for ElevenLabs widget...');
+    
+    // Try to find the ElevenLabs widget element
+    const checkForWidget = setInterval(function() {
+        const widget = document.querySelector('elevenlabs-convai');
+        if (widget) {
+            console.log('✅ ElevenLabs widget found:', widget);
+            clearInterval(checkForWidget);
+            
+            // Try to observe mutations in the widget
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    console.log('📝 Widget mutation detected:', mutation);
+                });
+            });
+            
+            // Observe the widget for changes
+            observer.observe(widget, {
+                childList: true,
+                subtree: true,
+                characterData: true
+            });
+        }
+    }, 500);
+    
+    setTimeout(function() {
+        clearInterval(checkForWidget);
+    }, 10000);
+});
+
+// Simple helper to manually trigger from console
+window.captureToTextBox = function(text) {
+    console.log('📝 Capturing text to textbox:', text);
+    writeToTextBox(text);
+};
+
 // Console welcome message
 console.log('%cProject-Based Learning Website', 'color: #2563eb; font-size: 18px; font-weight: 600;');
 console.log('%cPowered by modern web technologies and ElevenLabs AI.', 'color: #4a5568; font-size: 13px;');
 console.log('%cAPI Available: window.writeToTextBox(text) - Write answers to the textbox', 'color: #10b981; font-size: 12px;');
+console.log('%cAPI Available: window.captureToTextBox(text) - Capture and write to textbox', 'color: #10b981; font-size: 12px;');
 console.log('%cListening for messages from ElevenLabs widget...', 'color: #10b981; font-size: 12px;');
 
