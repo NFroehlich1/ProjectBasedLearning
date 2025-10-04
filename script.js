@@ -545,11 +545,14 @@ function copyArchiveText() {
 }
 
 // ============================================
-// Gemini AI Q&A Integration
+// AI Chat with Conversation History (Agentic RAG)
 // ============================================
 
+// Store conversation history
+let aiChatHistory = [];
+
 /**
- * Extract conversation text from the chat view
+ * Extract conversation text from ElevenLabs chat view
  */
 function extractConversationText() {
     const chatView = document.getElementById('conversationChatView');
@@ -578,14 +581,53 @@ function extractConversationText() {
 }
 
 /**
- * Ask Gemini AI a question about the conversation
+ * Add a message to the AI chat view
  */
-async function askGemini() {
-    const questionInput = document.getElementById('questionInput');
-    const geminiResponse = document.getElementById('geminiResponse');
-    const geminiAnswerText = document.getElementById('geminiAnswerText');
-    const geminiLoading = document.getElementById('geminiLoading');
-    const askButton = document.getElementById('askGemini');
+function addAiChatMessage(role, content) {
+    const chatView = document.getElementById('aiChatView');
+    
+    // Remove placeholder if exists
+    const placeholder = chatView.querySelector('.chat-placeholder');
+    if (placeholder) {
+        placeholder.remove();
+    }
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `ai-chat-message ${role}`;
+    
+    const bubbleDiv = document.createElement('div');
+    bubbleDiv.className = 'ai-message-bubble';
+    
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'ai-message-label';
+    labelDiv.textContent = role === 'user' ? 'You' : 'AI Assistant';
+    
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'ai-message-content';
+    
+    if (role === 'assistant') {
+        // Parse Markdown for assistant messages
+        contentDiv.innerHTML = marked.parse(content);
+    } else {
+        contentDiv.textContent = content;
+    }
+    
+    bubbleDiv.appendChild(labelDiv);
+    bubbleDiv.appendChild(contentDiv);
+    messageDiv.appendChild(bubbleDiv);
+    chatView.appendChild(messageDiv);
+    
+    // Scroll to bottom
+    chatView.scrollTop = chatView.scrollHeight;
+}
+
+/**
+ * Send AI question with conversation history
+ */
+async function sendAiQuestion() {
+    const questionInput = document.getElementById('aiQuestionInput');
+    const loadingIndicator = document.getElementById('aiChatLoading');
+    const sendButton = document.getElementById('sendAiQuestion');
     
     const question = questionInput.value.trim();
     
@@ -594,25 +636,22 @@ async function askGemini() {
         return;
     }
     
-    // Get conversation context
-    const conversationContext = extractConversationText();
+    // Add user message to chat
+    addAiChatMessage('user', question);
+    aiChatHistory.push({ role: 'user', content: question });
     
-    if (!conversationContext) {
-        if (confirm('No conversation loaded yet. Do you want to ask a general question about Project-Based Learning?')) {
-            // Continue without context
-        } else {
-            showNotification('Please load a conversation first');
-            return;
-        }
-    }
+    // Clear input
+    questionInput.value = '';
     
     // Show loading
-    geminiLoading.classList.remove('hidden');
-    geminiResponse.classList.add('hidden');
-    askButton.disabled = true;
+    loadingIndicator.classList.remove('hidden');
+    sendButton.disabled = true;
     
     try {
-        console.log('🤖 Asking Gemini AI...');
+        console.log('🤖 Sending question to AI...');
+        
+        // Get ElevenLabs conversation context if available
+        const elevenLabsContext = extractConversationText();
         
         const response = await fetch(GEMINI_CONFIG.functionUrl, {
             method: 'POST',
@@ -620,8 +659,9 @@ async function askGemini() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                conversationContext: conversationContext,
-                userQuestion: question
+                conversationContext: elevenLabsContext,
+                userQuestion: question,
+                chatHistory: aiChatHistory.slice(0, -1) // Send all history except current question
             })
         });
         
@@ -631,26 +671,53 @@ async function askGemini() {
         }
         
         const data = await response.json();
-        console.log('✅ Gemini response received');
+        console.log('✅ AI response received');
         
-        // Parse Markdown and display the answer
-        const markdownAnswer = data.answer;
-        const htmlAnswer = marked.parse(markdownAnswer);
-        geminiAnswerText.innerHTML = htmlAnswer;
-        geminiResponse.classList.remove('hidden');
-        
-        // Scroll to response
-        geminiResponse.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        // Add assistant message to chat
+        addAiChatMessage('assistant', data.answer);
+        aiChatHistory.push({ role: 'assistant', content: data.answer });
         
     } catch (error) {
-        console.error('❌ Error asking Gemini:', error);
-        geminiAnswerText.textContent = `Error: ${error.message}\n\nPlease check:\n1. The Supabase Edge Function is deployed\n2. The GEMINI_API_KEY secret is set in Supabase\n3. Your internet connection`;
-        geminiResponse.classList.remove('hidden');
+        console.error('❌ Error:', error);
+        addAiChatMessage('assistant', `**Error:** ${error.message}\n\nPlease check your connection and try again.`);
     } finally {
-        geminiLoading.classList.add('hidden');
-        askButton.disabled = false;
+        loadingIndicator.classList.add('hidden');
+        sendButton.disabled = false;
+        questionInput.focus();
     }
 }
+
+/**
+ * Clear AI chat history
+ */
+function clearAiChat() {
+    if (aiChatHistory.length === 0) {
+        showNotification('Chat is already empty');
+        return;
+    }
+    
+    if (confirm('Clear all chat messages?')) {
+        aiChatHistory = [];
+        const chatView = document.getElementById('aiChatView');
+        chatView.innerHTML = '<div class="chat-placeholder">Start a conversation by asking a question about Project-Based Learning...</div>';
+        showNotification('Chat cleared');
+    }
+}
+
+/**
+ * Handle Enter key in textarea
+ */
+document.addEventListener('DOMContentLoaded', () => {
+    const questionInput = document.getElementById('aiQuestionInput');
+    if (questionInput) {
+        questionInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendAiQuestion();
+            }
+        });
+    }
+});
 
 // Console welcome message
 console.log('%cProject-Based Learning Website', 'color: #2563eb; font-size: 18px; font-weight: 600;');

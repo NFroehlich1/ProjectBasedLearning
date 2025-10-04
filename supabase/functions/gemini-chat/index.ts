@@ -38,12 +38,13 @@ serve(async (req) => {
 
     // Parse request body
     const body = await req.json()
-    const { conversationContext, userQuestion } = body
+    const { conversationContext, userQuestion, chatHistory } = body
 
     console.log('Request:', { 
       hasContext: !!conversationContext, 
       contextLength: conversationContext?.length || 0,
-      question: userQuestion?.substring(0, 100) + '...'
+      question: userQuestion?.substring(0, 100) + '...',
+      historyLength: chatHistory?.length || 0
     })
 
     if (!userQuestion) {
@@ -56,7 +57,7 @@ serve(async (req) => {
       )
     }
 
-    // Build the prompt for Gemini with PDF context
+    // Build the prompt for Gemini with PDF context and chat history
     let prompt = ''
     
     // Base system context with PDF knowledge
@@ -67,27 +68,33 @@ serve(async (req) => {
 - Blumenfeld et al. 1991: Motivating Project-Based Learning
 - Thomas 2000: Review of PBL
 
-Use this knowledge base to provide accurate, research-backed answers.`
+Use this knowledge base to provide accurate, research-backed answers. Format your response in Markdown with proper headings, lists, and emphasis where appropriate.`
     
+    // Build context sections
+    let contextSections = []
+    
+    // Add ElevenLabs conversation context if available
     if (conversationContext && conversationContext.trim() !== '') {
-      prompt = `${systemContext}
-
-Here is a conversation transcript to analyze:
----
-${conversationContext}
----
-
-Based on the conversation above and your PBL knowledge base, please answer:
-${userQuestion}
-
-Provide a clear, well-researched answer.`
-    } else {
-      prompt = `${systemContext}
-
-Question: ${userQuestion}
-
-Provide a clear, research-backed answer using your PBL knowledge base.`
+      contextSections.push(`## ElevenLabs Conversation Context:\n${conversationContext}`)
     }
+    
+    // Add chat history if available
+    if (chatHistory && chatHistory.length > 0) {
+      let historyText = '## Previous Chat History:\n'
+      chatHistory.forEach(msg => {
+        historyText += `**${msg.role === 'user' ? 'User' : 'Assistant'}:** ${msg.content}\n\n`
+      })
+      contextSections.push(historyText)
+    }
+    
+    // Build final prompt
+    prompt = systemContext
+    
+    if (contextSections.length > 0) {
+      prompt += '\n\n' + contextSections.join('\n\n')
+    }
+    
+    prompt += `\n\n## Current Question:\n${userQuestion}\n\nProvide a clear, well-researched answer using your PBL knowledge base and the context above. Use Markdown formatting.`
 
     // Call Google Gemini API with fallback models
     console.log('Calling Gemini API...')

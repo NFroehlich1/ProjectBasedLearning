@@ -154,32 +154,42 @@
                     </div>
                 </div>
 
-                <!-- Gemini Q&A Section -->
+                <!-- AI Chat Section -->
                 <div class="gemini-qa-section">
                     <div class="qa-header">
-                        <h3>Ask Questions About This Conversation</h3>
+                        <h3>AI Research Assistant</h3>
+                        <p>Ask questions about Project-Based Learning</p>
                     </div>
                     <div class="qa-container">
-                        <div class="qa-input-area">
-                            <textarea 
-                                id="questionInput" 
-                                class="question-input" 
-                                placeholder="Ask anything about the conversation above... (e.g., 'What were the main topics discussed?', 'Summarize the key points')"
-                                rows="3"
-                            ></textarea>
-                            <button id="askGemini" class="ask-button" onclick="askGemini()">
-                                Send
-                            </button>
-                        </div>
-                        <div id="geminiResponse" class="gemini-response hidden">
-                            <div class="response-header">
-                                <strong>🤖 Answer:</strong>
+                        <!-- Chat Messages -->
+                        <div id="aiChatView" class="ai-chat-view">
+                            <div class="chat-placeholder">
+                                Start a conversation by asking a question about Project-Based Learning...
                             </div>
-                            <div id="geminiAnswerText" class="response-text"></div>
                         </div>
-                        <div id="geminiLoading" class="gemini-loading hidden">
+                        
+                        <!-- Loading Indicator -->
+                        <div id="aiChatLoading" class="ai-chat-loading hidden">
                             <div class="loading-spinner"></div>
                             <span>Thinking...</span>
+                        </div>
+                        
+                        <!-- Input Area -->
+                        <div class="ai-input-area">
+                            <textarea 
+                                id="aiQuestionInput" 
+                                class="ai-question-input" 
+                                placeholder="Ask a question or follow-up..."
+                                rows="2"
+                            ></textarea>
+                            <div class="ai-input-buttons">
+                                <button id="clearAiChat" class="ai-button secondary" onclick="clearAiChat()">
+                                    🗑️ Clear Chat
+                                </button>
+                                <button id="sendAiQuestion" class="ai-button primary" onclick="sendAiQuestion()">
+                                    Send
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
