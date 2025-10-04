@@ -344,11 +344,144 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 10000);
 });
 
-// Simple helper to manually trigger from console
-window.captureToTextBox = function(text) {
-    console.log('📝 Capturing text to textbox:', text);
-    writeToTextBox(text);
+// ============================================
+// ElevenLabs Conversation Archive
+// ============================================
+
+// Configuration - USER NEEDS TO SET THIS
+const ELEVENLABS_CONFIG = {
+    apiKey: '', // USER MUST ADD THEIR API KEY HERE
+    agentId: 'agent_3701k6gsym8hfrzbzb4cz2g9r6xj'
 };
+
+/**
+ * Load the last completed conversation from ElevenLabs
+ */
+async function loadLastConversation() {
+    const archiveBox = document.getElementById('conversationArchive');
+    const loadingNotification = document.getElementById('loadingNotification');
+    
+    // Check if API key is set
+    if (!ELEVENLABS_CONFIG.apiKey || ELEVENLABS_CONFIG.apiKey === '') {
+        alert('Please set your ElevenLabs API key in script.js (ELEVENLABS_CONFIG.apiKey)');
+        console.error('API key not configured');
+        return;
+    }
+    
+    // Show loading
+    loadingNotification.classList.remove('hidden');
+    
+    try {
+        console.log('📥 Fetching conversations...');
+        
+        // Step 1: Get list of conversations
+        const conversationsResponse = await fetch(
+            `https://api.elevenlabs.io/v1/convai/conversations?agent_id=${ELEVENLABS_CONFIG.agentId}`,
+            {
+                headers: {
+                    'xi-api-key': ELEVENLABS_CONFIG.apiKey
+                }
+            }
+        );
+        
+        if (!conversationsResponse.ok) {
+            throw new Error(`Failed to fetch conversations: ${conversationsResponse.status}`);
+        }
+        
+        const conversationsData = await conversationsResponse.json();
+        console.log('✅ Conversations fetched:', conversationsData);
+        
+        if (!conversationsData.conversations || conversationsData.conversations.length === 0) {
+            archiveBox.value = 'No conversations found yet. Start a conversation with the AI assistant first!';
+            loadingNotification.classList.add('hidden');
+            return;
+        }
+        
+        // Get the most recent conversation
+        const lastConversation = conversationsData.conversations[0];
+        const conversationId = lastConversation.conversation_id;
+        
+        console.log(`📥 Fetching conversation details: ${conversationId}`);
+        
+        // Step 2: Get full conversation details
+        const conversationResponse = await fetch(
+            `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`,
+            {
+                headers: {
+                    'xi-api-key': ELEVENLABS_CONFIG.apiKey
+                }
+            }
+        );
+        
+        if (!conversationResponse.ok) {
+            throw new Error(`Failed to fetch conversation details: ${conversationResponse.status}`);
+        }
+        
+        const conversation = await conversationResponse.json();
+        console.log('✅ Conversation details fetched:', conversation);
+        
+        // Step 3: Format and display the conversation
+        const formattedConversation = formatConversation(conversation);
+        archiveBox.value = formattedConversation;
+        
+        // Success notification
+        showNotification('Conversation loaded successfully!');
+        
+    } catch (error) {
+        console.error('❌ Error loading conversation:', error);
+        archiveBox.value = `Error loading conversation: ${error.message}\n\nPlease check:\n1. Your API key is correct\n2. You have conversations in ElevenLabs\n3. Your internet connection`;
+    } finally {
+        loadingNotification.classList.add('hidden');
+    }
+}
+
+/**
+ * Format conversation data into readable text
+ */
+function formatConversation(conversation) {
+    const date = new Date(conversation.start_time_unix_secs * 1000);
+    const formattedDate = date.toLocaleString();
+    
+    let formatted = `========================================\n`;
+    formatted += `PROJECT-BASED LEARNING CONSULTATION\n`;
+    formatted += `========================================\n\n`;
+    formatted += `Date: ${formattedDate}\n`;
+    formatted += `Conversation ID: ${conversation.conversation_id}\n`;
+    formatted += `Status: ${conversation.status}\n\n`;
+    formatted += `========================================\n`;
+    formatted += `CONVERSATION TRANSCRIPT\n`;
+    formatted += `========================================\n\n`;
+    
+    // Format each message in the conversation
+    if (conversation.transcript && conversation.transcript.length > 0) {
+        conversation.transcript.forEach((message, index) => {
+            const role = message.role === 'user' ? 'USER' : 'AI ASSISTANT';
+            const timestamp = message.timestamp ? new Date(message.timestamp * 1000).toLocaleTimeString() : '';
+            
+            formatted += `[${timestamp}] ${role}:\n`;
+            formatted += `${message.message}\n\n`;
+        });
+    } else {
+        formatted += 'No transcript available.\n\n';
+    }
+    
+    formatted += `========================================\n`;
+    formatted += `END OF CONVERSATION\n`;
+    formatted += `========================================\n`;
+    
+    return formatted;
+}
+
+/**
+ * Clear the archive textbox
+ */
+function clearArchive() {
+    const archiveBox = document.getElementById('conversationArchive');
+    if (confirm('Are you sure you want to clear the conversation archive?')) {
+        archiveBox.value = '';
+        showNotification('Archive cleared');
+    }
+}
 
 // Console welcome message
 console.log('%cProject-Based Learning Website', 'color: #2563eb; font-size: 18px; font-weight: 600;');

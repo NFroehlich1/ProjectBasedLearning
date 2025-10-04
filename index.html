@@ -126,6 +126,31 @@
                 <p>Ask anything about Project-Based Learning and get instant, personalized answers.</p>
                 <p class="ai-subtext">Our AI assistant can discuss PBL theory, implementation strategies, research findings, and more!</p>
             </section>
+
+            <section class="conversation-archive">
+                <div class="archive-header">
+                    <h2>Conversation Archive</h2>
+                    <p>Save your completed conversations for future reference.</p>
+                </div>
+                <div class="archive-container">
+                    <div class="archive-controls">
+                        <button id="loadLastConversation" class="control-btn" onclick="loadLastConversation()">
+                            📥 Load Last Conversation
+                        </button>
+                        <button id="clearArchive" class="control-btn secondary" onclick="clearArchive()">
+                            🗑️ Clear
+                        </button>
+                    </div>
+                    <textarea 
+                        id="conversationArchive" 
+                        class="archive-textbox" 
+                        placeholder="Click 'Load Last Conversation' to retrieve and save your completed AI conversations here."
+                    ></textarea>
+                    <div id="loadingNotification" class="loading-notification hidden">
+                        Loading conversation...
+                    </div>
+                </div>
+            </section>
         </main>
 
         <footer class="footer">

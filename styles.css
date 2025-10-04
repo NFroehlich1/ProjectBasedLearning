@@ -464,6 +464,85 @@ body {
 }
 
 /* ================================
+   Conversation Archive Section
+   ================================ */
+
+.conversation-archive {
+    background: white;
+    padding: 50px 0;
+    margin-bottom: 0;
+}
+
+.archive-header {
+    margin-bottom: 30px;
+}
+
+.archive-header h2 {
+    color: #1a202c;
+    font-size: 1.875em;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.archive-header p {
+    color: #4a5568;
+    font-size: 1.0625em;
+    line-height: 1.7;
+}
+
+.archive-container {
+    position: relative;
+}
+
+.archive-controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.archive-textbox {
+    width: 100%;
+    min-height: 400px;
+    padding: 20px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875em;
+    line-height: 1.6;
+    color: #1a202c;
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    resize: vertical;
+    transition: border-color 0.2s ease;
+}
+
+.archive-textbox:focus {
+    outline: none;
+    border-color: #2563eb;
+    background: white;
+}
+
+.archive-textbox::placeholder {
+    color: #a0aec0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.loading-notification {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: #2d3748;
+    color: white;
+    padding: 16px 24px;
+    border-left: 4px solid #2563eb;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 10000;
+    font-weight: 500;
+}
+
+.loading-notification.hidden {
+    display: none;
+}
+
+/* ================================
    Footer
    ================================ */
 
@@ -500,7 +579,7 @@ body {
         padding: 40px 0;
     }
 
-    .answer-section {
+    .conversation-archive {
         padding: 40px 0;
     }
 
@@ -520,7 +599,7 @@ body {
     .intro h2,
     .benefits h2,
     .research-section h2,
-    .answer-header h2 {
+    .archive-header h2 {
         font-size: 1.5em;
     }
 
@@ -528,7 +607,7 @@ body {
         padding: 24px;
     }
 
-    .answer-controls {
+    .archive-controls {
         flex-direction: column;
     }
 
@@ -571,16 +650,16 @@ body {
         font-size: 1.5em;
     }
 
-    .answer-section {
+    .conversation-archive {
         padding: 30px 0;
     }
 
-    .answer-textbox {
-        min-height: 250px;
-        font-size: 0.875em;
+    .archive-textbox {
+        min-height: 300px;
+        font-size: 0.8125em;
     }
 
-    .copy-notification {
+    .loading-notification {
         bottom: 20px;
         right: 20px;
         left: 20px;
