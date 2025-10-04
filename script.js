@@ -348,10 +348,14 @@ document.addEventListener('DOMContentLoaded', function() {
 // ElevenLabs Conversation Archive
 // ============================================
 
-// Configuration - Supabase Edge Function (API Key secured in Supabase Secrets)
+// Configuration - Supabase Edge Functions (API Keys secured in Supabase Secrets)
 const ELEVENLABS_CONFIG = {
     functionUrl: 'https://rcfgpdrrnhltozrnsgic.supabase.co/functions/v1/get-elevenlabs-conversations',
     agentId: 'agent_3701k6gsym8hfrzbzb4cz2g9r6xj'
+};
+
+const GEMINI_CONFIG = {
+    functionUrl: 'https://rcfgpdrrnhltozrnsgic.supabase.co/functions/v1/gemini-chat'
 };
 
 /**
@@ -540,10 +544,116 @@ function copyArchiveText() {
     });
 }
 
+// ============================================
+// Gemini AI Q&A Integration
+// ============================================
+
+/**
+ * Extract conversation text from the chat view
+ */
+function extractConversationText() {
+    const chatView = document.getElementById('conversationChatView');
+    const messages = chatView.querySelectorAll('.chat-message');
+    
+    if (messages.length === 0) {
+        return '';
+    }
+    
+    let text = '';
+    
+    // Get date header if exists
+    const dateHeader = chatView.querySelector('.chat-date-header');
+    if (dateHeader) {
+        text += `Conversation Date: ${dateHeader.textContent}\n\n`;
+    }
+    
+    // Get all messages
+    messages.forEach(msg => {
+        const label = msg.querySelector('.message-label').textContent;
+        const messageText = msg.querySelector('.message-text').textContent;
+        text += `${label}: ${messageText}\n\n`;
+    });
+    
+    return text;
+}
+
+/**
+ * Ask Gemini AI a question about the conversation
+ */
+async function askGemini() {
+    const questionInput = document.getElementById('questionInput');
+    const geminiResponse = document.getElementById('geminiResponse');
+    const geminiAnswerText = document.getElementById('geminiAnswerText');
+    const geminiLoading = document.getElementById('geminiLoading');
+    const askButton = document.getElementById('askGemini');
+    
+    const question = questionInput.value.trim();
+    
+    if (!question) {
+        showNotification('Please enter a question');
+        return;
+    }
+    
+    // Get conversation context
+    const conversationContext = extractConversationText();
+    
+    if (!conversationContext) {
+        if (confirm('No conversation loaded yet. Do you want to ask a general question about Project-Based Learning?')) {
+            // Continue without context
+        } else {
+            showNotification('Please load a conversation first');
+            return;
+        }
+    }
+    
+    // Show loading
+    geminiLoading.classList.remove('hidden');
+    geminiResponse.classList.add('hidden');
+    askButton.disabled = true;
+    
+    try {
+        console.log('🤖 Asking Gemini AI...');
+        
+        const response = await fetch(GEMINI_CONFIG.functionUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                conversationContext: conversationContext,
+                userQuestion: question
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `Failed to get response: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('✅ Gemini response received');
+        
+        // Display the answer
+        geminiAnswerText.textContent = data.answer;
+        geminiResponse.classList.remove('hidden');
+        
+        // Scroll to response
+        geminiResponse.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        
+    } catch (error) {
+        console.error('❌ Error asking Gemini:', error);
+        geminiAnswerText.textContent = `Error: ${error.message}\n\nPlease check:\n1. The Supabase Edge Function is deployed\n2. The GEMINI_API_KEY secret is set in Supabase\n3. Your internet connection`;
+        geminiResponse.classList.remove('hidden');
+    } finally {
+        geminiLoading.classList.add('hidden');
+        askButton.disabled = false;
+    }
+}
+
 // Console welcome message
 console.log('%cProject-Based Learning Website', 'color: #2563eb; font-size: 18px; font-weight: 600;');
-console.log('%cPowered by modern web technologies and ElevenLabs AI.', 'color: #4a5568; font-size: 13px;');
-console.log('%cAPI Available: window.writeToTextBox(text) - Write answers to the textbox', 'color: #10b981; font-size: 12px;');
+console.log('%cPowered by modern web technologies, ElevenLabs AI, and Google Gemini.', 'color: #4a5568; font-size: 13px;');
+console.log('%cFeatures: Conversation Archive, AI Q&A with Gemini', 'color: #10b981; font-size: 12px;');
 console.log('%cAPI Available: window.captureToTextBox(text) - Capture and write to textbox', 'color: #10b981; font-size: 12px;');
 console.log('%cListening for messages from ElevenLabs widget...', 'color: #10b981; font-size: 12px;');
 
