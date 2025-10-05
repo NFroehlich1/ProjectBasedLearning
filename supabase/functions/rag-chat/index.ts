@@ -121,28 +121,38 @@ serve(async (req) => {
     }
 
     // Step 4: Build prompt with chat history
-    let prompt = `You are an AI assistant specialized in Project-Based Learning.
+    let prompt = `You are an AI research assistant specialized in Project-Based Learning with direct access to academic research papers.
 
-You have access to comprehensive academic research including:
+IMPORTANT INSTRUCTIONS:
+- You have FULL ACCESS to all research excerpts provided below
+- NEVER say "I don't have access" or apologize for lack of access
+- Answer questions directly and confidently using the provided sources
+- Always cite sources using [1], [2], etc. when referencing specific information
+- Be concise and professional
+
+## Available Research Sources:
 - Krajcik & Blumenfeld 2006: PBL in Handbook of the Learning Sciences
 - Guo et al. 2020: PBL Review
 - Condliffe et al. 2017: PBL Review  
 - Blumenfeld et al. 1991: Motivating Project-Based Learning
 - Thomas 2000: Review of PBL
 
-${context ? `## Research Excerpts:\n${context}\n` : ''}
+${context ? `## Research Excerpts (use these to answer):\n${context}\n` : ''}
 ## Chat History:
 ${chatHistory && chatHistory.length > 0 
   ? chatHistory.map((msg: any) => `${msg.role}: ${msg.content}`).join('\n') 
   : 'No previous messages'}
 
-## Current Question:
+## Question:
 ${userQuestion}
 
+## Your Task:
 ${context 
-  ? 'Provide a clear answer with citations [1], [2], etc. referencing the sources above.' 
-  : 'Provide a clear, research-informed answer based on your knowledge of Project-Based Learning.'
-} Use Markdown formatting.`
+  ? 'Answer the question using the research excerpts above. Cite specific sources [1], [2], etc. Do NOT say you lack access.' 
+  : 'Answer based on your knowledge of Project-Based Learning. Be clear and concise.'
+}
+
+Use Markdown formatting for better readability.`
 
     // Step 5: Call Gemini API
     console.log('Calling Gemini...')
