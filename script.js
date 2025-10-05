@@ -623,16 +623,38 @@ function addAiChatMessage(role, content) {
 }
 
 /**
- * Generate PDF hyperlink with text fragment navigation
+ * PDF Viewer State
+ */
+const pdfViewerState = {
+    pdfDoc: null,
+    pageNum: 1,
+    pageRendering: false,
+    pageNumPending: null,
+    scale: 1.5,
+    canvas: null,
+    ctx: null,
+    highlightText: ''
+};
+
+/**
+ * Initialize PDF.js worker
+ */
+if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+/**
+ * Generate PDF hyperlink that opens in-app viewer
  */
 function generatePdfLink(source, index) {
     const textSnippet = source.text_snippet.trim();
-    // Create link with text fragment identifier
-    const fragmentLink = `${source.document_url}#:~:text=${encodeURIComponent(textSnippet)}`;
     return {
-        url: fragmentLink,
+        url: source.document_url,
+        page: source.page_number,
+        snippet: textSnippet,
         display: `[${index}]`,
-        title: `${source.document_name} - Page ${source.page_number}`
+        title: `${source.document_name} - Page ${source.page_number}`,
+        docName: source.document_name
     };
 }
 
@@ -642,14 +664,20 @@ function generatePdfLink(source, index) {
 function processGroundedResponse(generatedText, sources) {
     let processedText = generatedText;
     
-    // Replace citation markers [1], [2], etc. with hyperlinks
+    // Replace citation markers [1], [2], etc. with clickable links
     sources.forEach((source, index) => {
         const citationIndex = index + 1;
         const link = generatePdfLink(source, citationIndex);
         
-        // Replace [1] with clickable link
+        // Replace [1] with clickable link that opens PDF viewer
         const citationPattern = new RegExp(`\\[${citationIndex}\\]`, 'g');
-        const linkHtml = `<a href="${link.url}" target="_blank" title="${link.title}" class="source-link">[${citationIndex}]</a>`;
+        const linkHtml = `<a href="#" 
+            class="source-link pdf-viewer-link" 
+            data-pdf-url="${link.url}" 
+            data-pdf-page="${link.page}" 
+            data-pdf-snippet="${escapeHtml(link.snippet)}" 
+            data-pdf-title="${escapeHtml(link.docName)}" 
+            title="${link.title}">[${citationIndex}]</a>`;
         processedText = processedText.replace(citationPattern, linkHtml);
     });
     
@@ -658,11 +686,26 @@ function processGroundedResponse(generatedText, sources) {
         processedText += '\n\n---\n\n**Sources:**\n\n';
         sources.forEach((source, index) => {
             const link = generatePdfLink(source, index + 1);
-            processedText += `${link.display} [${source.document_name}](${link.url}) - Page ${source.page_number}\n\n`;
+            processedText += `${link.display} [${source.document_name}](#) - Page ${source.page_number} `;
+            processedText += `[📄 Open](# "class:pdf-viewer-link" "data-pdf-url:${link.url}" "data-pdf-page:${link.page}" "data-pdf-snippet:${escapeHtml(link.snippet)}" "data-pdf-title:${escapeHtml(link.docName)}")\n\n`;
         });
     }
     
     return processedText;
+}
+
+/**
+ * Escape HTML to prevent XSS
+ */
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
 }
 
 /**
@@ -787,12 +830,331 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    
+    // Initialize PDF viewer
+    initializePdfViewer();
 });
+
+/* ================================
+   PDF VIEWER FUNCTIONALITY
+   ================================ */
+
+/**
+ * Initialize PDF viewer event listeners
+ */
+function initializePdfViewer() {
+    // Canvas and context
+    pdfViewerState.canvas = document.getElementById('pdfCanvas');
+    pdfViewerState.ctx = pdfViewerState.canvas?.getContext('2d');
+    
+    // Close button
+    const closeBtn = document.getElementById('closePdfModal');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closePdfModal);
+    }
+    
+    // Navigation buttons
+    const prevBtn = document.getElementById('prevPage');
+    const nextBtn = document.getElementById('nextPage');
+    
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (pdfViewerState.pageNum > 1) {
+                pdfViewerState.pageNum--;
+                queuePageRender(pdfViewerState.pageNum);
+            }
+        });
+    }
+    
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            if (pdfViewerState.pdfDoc && pdfViewerState.pageNum < pdfViewerState.pdfDoc.numPages) {
+                pdfViewerState.pageNum++;
+                queuePageRender(pdfViewerState.pageNum);
+            }
+        });
+    }
+    
+    // Close modal on background click
+    const modal = document.getElementById('pdfModal');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closePdfModal();
+            }
+        });
+    }
+    
+    // Delegate event for PDF links
+    document.body.addEventListener('click', (e) => {
+        const pdfLink = e.target.closest('.pdf-viewer-link');
+        if (pdfLink) {
+            e.preventDefault();
+            const url = pdfLink.dataset.pdfUrl;
+            const page = parseInt(pdfLink.dataset.pdfPage) || 1;
+            const snippet = pdfLink.dataset.pdfSnippet || '';
+            const title = pdfLink.dataset.pdfTitle || 'Document';
+            openPdfViewer(url, page, snippet, title);
+        }
+    });
+}
+
+/**
+ * Open PDF viewer with specific page and highlight
+ */
+async function openPdfViewer(pdfUrl, pageNumber, highlightText, docTitle) {
+    console.log('📄 Opening PDF viewer:', { pdfUrl, pageNumber, highlightText, docTitle });
+    
+    const modal = document.getElementById('pdfModal');
+    const titleEl = document.getElementById('pdfTitle');
+    const highlightInfo = document.getElementById('highlightInfo');
+    const highlightTextEl = document.getElementById('highlightText');
+    
+    // Show modal
+    modal.classList.remove('hidden');
+    
+    // Set title
+    if (titleEl) {
+        titleEl.textContent = docTitle;
+    }
+    
+    // Show highlight info
+    if (highlightText && highlightInfo && highlightTextEl) {
+        highlightTextEl.textContent = highlightText;
+        highlightInfo.classList.remove('hidden');
+        pdfViewerState.highlightText = highlightText;
+    } else if (highlightInfo) {
+        highlightInfo.classList.add('hidden');
+        pdfViewerState.highlightText = '';
+    }
+    
+    try {
+        // Load PDF
+        const loadingTask = pdfjsLib.getDocument(pdfUrl);
+        const pdf = await loadingTask.promise;
+        
+        pdfViewerState.pdfDoc = pdf;
+        pdfViewerState.pageNum = pageNumber;
+        
+        // Update total pages
+        document.getElementById('totalPages').textContent = pdf.numPages;
+        
+        // Render the specified page
+        await renderPage(pageNumber);
+        
+    } catch (error) {
+        console.error('❌ Error loading PDF:', error);
+        alert('Failed to load PDF. Please try again.');
+        closePdfModal();
+    }
+}
+
+/**
+ * Render a specific page with text layer and highlighting
+ */
+async function renderPage(num) {
+    pdfViewerState.pageRendering = true;
+    
+    try {
+        const page = await pdfViewerState.pdfDoc.getPage(num);
+        
+        const viewport = page.getViewport({ scale: pdfViewerState.scale });
+        pdfViewerState.canvas.height = viewport.height;
+        pdfViewerState.canvas.width = viewport.width;
+        
+        // Render PDF page
+        const renderContext = {
+            canvasContext: pdfViewerState.ctx,
+            viewport: viewport
+        };
+        
+        await page.render(renderContext).promise;
+        
+        // Render text layer for highlighting
+        await renderTextLayer(page, viewport);
+        
+        // Highlight the search text if available
+        if (pdfViewerState.highlightText) {
+            await highlightText(page, viewport, pdfViewerState.highlightText);
+        }
+        
+        pdfViewerState.pageRendering = false;
+        
+        // Update page number display
+        document.getElementById('currentPage').textContent = num;
+        
+        // Update button states
+        document.getElementById('prevPage').disabled = (num <= 1);
+        document.getElementById('nextPage').disabled = (num >= pdfViewerState.pdfDoc.numPages);
+        
+        // If there's a pending page, render it
+        if (pdfViewerState.pageNumPending !== null) {
+            renderPage(pdfViewerState.pageNumPending);
+            pdfViewerState.pageNumPending = null;
+        }
+        
+    } catch (error) {
+        console.error('❌ Error rendering page:', error);
+        pdfViewerState.pageRendering = false;
+    }
+}
+
+/**
+ * Render text layer for the PDF page
+ */
+async function renderTextLayer(page, viewport) {
+    const textLayer = document.getElementById('textLayer');
+    textLayer.innerHTML = '';
+    textLayer.style.width = viewport.width + 'px';
+    textLayer.style.height = viewport.height + 'px';
+    
+    try {
+        const textContent = await page.getTextContent();
+        
+        textContent.items.forEach(item => {
+            const tx = pdfjsLib.Util.transform(
+                viewport.transform,
+                item.transform
+            );
+            
+            const span = document.createElement('span');
+            span.textContent = item.str;
+            span.style.left = tx[4] + 'px';
+            span.style.top = (tx[5] - item.height) + 'px';
+            span.style.fontSize = (item.height * viewport.scale) + 'px';
+            span.style.fontFamily = item.fontName;
+            
+            textLayer.appendChild(span);
+        });
+    } catch (error) {
+        console.error('Error rendering text layer:', error);
+    }
+}
+
+/**
+ * Highlight specific text in the PDF
+ */
+async function highlightText(page, viewport, searchText) {
+    const highlightLayer = document.getElementById('highlightLayer');
+    highlightLayer.innerHTML = '';
+    highlightLayer.style.width = viewport.width + 'px';
+    highlightLayer.style.height = viewport.height + 'px';
+    
+    try {
+        const textContent = await page.getTextContent();
+        
+        // Build full text string with positions
+        let fullText = '';
+        const positions = [];
+        
+        textContent.items.forEach(item => {
+            const startPos = fullText.length;
+            fullText += item.str;
+            positions.push({
+                text: item.str,
+                startPos: startPos,
+                endPos: fullText.length,
+                transform: item.transform,
+                width: item.width,
+                height: item.height
+            });
+            fullText += ' '; // Add space between items
+        });
+        
+        // Find the search text (case-insensitive, flexible matching)
+        const searchTextClean = searchText.toLowerCase().replace(/\s+/g, ' ').trim();
+        const fullTextClean = fullText.toLowerCase();
+        
+        let searchIndex = fullTextClean.indexOf(searchTextClean);
+        
+        // If exact match not found, try first 50 characters
+        if (searchIndex === -1 && searchTextClean.length > 50) {
+            const shortSearch = searchTextClean.substring(0, 50);
+            searchIndex = fullTextClean.indexOf(shortSearch);
+        }
+        
+        // If still not found, try first 30 characters
+        if (searchIndex === -1 && searchTextClean.length > 30) {
+            const shortSearch = searchTextClean.substring(0, 30);
+            searchIndex = fullTextClean.indexOf(shortSearch);
+        }
+        
+        if (searchIndex !== -1) {
+            const searchEndIndex = searchIndex + Math.min(searchTextClean.length, fullText.length - searchIndex);
+            
+            // Find all text items that overlap with the search range
+            positions.forEach(pos => {
+                if (pos.endPos > searchIndex && pos.startPos < searchEndIndex) {
+                    const tx = pdfjsLib.Util.transform(viewport.transform, pos.transform);
+                    
+                    const highlight = document.createElement('div');
+                    highlight.className = 'pdf-highlight';
+                    highlight.style.left = tx[4] + 'px';
+                    highlight.style.top = (tx[5] - pos.height) + 'px';
+                    highlight.style.width = (pos.width * viewport.scale) + 'px';
+                    highlight.style.height = (pos.height * viewport.scale) + 'px';
+                    
+                    highlightLayer.appendChild(highlight);
+                }
+            });
+            
+            // Scroll to the first highlight
+            const firstHighlight = highlightLayer.querySelector('.pdf-highlight');
+            if (firstHighlight) {
+                setTimeout(() => {
+                    firstHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 300);
+            }
+            
+            console.log('✅ Text highlighted successfully');
+        } else {
+            console.log('⚠️ Text not found on this page');
+        }
+        
+    } catch (error) {
+        console.error('Error highlighting text:', error);
+    }
+}
+
+/**
+ * Queue page render if another render is in progress
+ */
+function queuePageRender(num) {
+    if (pdfViewerState.pageRendering) {
+        pdfViewerState.pageNumPending = num;
+    } else {
+        renderPage(num);
+    }
+}
+
+/**
+ * Close PDF modal
+ */
+function closePdfModal() {
+    const modal = document.getElementById('pdfModal');
+    modal.classList.add('hidden');
+    
+    // Reset state
+    pdfViewerState.pdfDoc = null;
+    pdfViewerState.pageNum = 1;
+    pdfViewerState.highlightText = '';
+    
+    // Clear canvas
+    if (pdfViewerState.ctx && pdfViewerState.canvas) {
+        pdfViewerState.ctx.clearRect(0, 0, pdfViewerState.canvas.width, pdfViewerState.canvas.height);
+    }
+    
+    // Clear layers
+    const textLayer = document.getElementById('textLayer');
+    const highlightLayer = document.getElementById('highlightLayer');
+    if (textLayer) textLayer.innerHTML = '';
+    if (highlightLayer) highlightLayer.innerHTML = '';
+}
 
 // Console welcome message
 console.log('%cProject-Based Learning Website', 'color: #2563eb; font-size: 18px; font-weight: 600;');
 console.log('%cPowered by modern web technologies and AI.', 'color: #4a5568; font-size: 13px;');
-console.log('%cFeatures: Conversation Archive, AI Q&A', 'color: #10b981; font-size: 12px;');
+console.log('%cFeatures: Conversation Archive, AI Q&A, PDF Viewer', 'color: #10b981; font-size: 12px;');
 console.log('%cAPI Available: window.captureToTextBox(text) - Capture and write to textbox', 'color: #10b981; font-size: 12px;');
 console.log('%cListening for messages from ElevenLabs widget...', 'color: #10b981; font-size: 12px;');
 

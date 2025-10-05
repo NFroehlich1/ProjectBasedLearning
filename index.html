@@ -5,8 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project-Based Learning | Interactive Guide</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- PDF.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
+    <!-- PDF Viewer Modal -->
+    <div id="pdfModal" class="pdf-modal hidden">
+        <div class="pdf-modal-content">
+            <div class="pdf-modal-header">
+                <h3 id="pdfTitle">Document Viewer</h3>
+                <button id="closePdfModal" class="close-modal-btn">&times;</button>
+            </div>
+            <div class="pdf-controls">
+                <button id="prevPage" class="pdf-nav-btn">← Previous</button>
+                <span class="pdf-page-info">
+                    Page <span id="currentPage">1</span> of <span id="totalPages">1</span>
+                </span>
+                <button id="nextPage" class="pdf-nav-btn">Next →</button>
+            </div>
+            <div class="pdf-viewer-container">
+                <div id="pdfPageWrapper" style="position: relative; display: inline-block;">
+                    <canvas id="pdfCanvas"></canvas>
+                    <div id="textLayer" class="pdf-text-layer"></div>
+                    <div id="highlightLayer" class="pdf-highlight-layer"></div>
+                </div>
+            </div>
+            <div class="pdf-highlight-info hidden" id="highlightInfo">
+                <strong>📍 Relevant passage:</strong>
+                <p id="highlightText"></p>
+            </div>
+        </div>
+    </div>
     <div class="container">
         <header class="header">
             <h1>Project-Based Learning</h1>
