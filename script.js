@@ -734,6 +734,33 @@ function processGroundedResponse(generatedText, sources) {
     // If model didn't include explicit markers, we'll still show a clickable Sources section later
     const hasAnySources = sourcesData.length > 0;
 
+    // Replace inline markers directly in markdown before parsing (more robust)
+    if (usedSources.length > 0) {
+        usedSources.forEach((used) => {
+            const patterns = buildCitationPatterns(used.index);
+            const linkHtml = `<a href="#" 
+                class="source-link pdf-viewer-link" 
+                data-pdf-url="${used.url}" 
+                data-pdf-page="${used.page}" 
+                data-pdf-snippet="${escapeHtml(used.snippet)}" 
+                data-pdf-title="${escapeHtml(used.docName)}" 
+                title="${used.title}">[${used.index}]</a>`;
+            patterns.forEach((pattern) => {
+                generatedText = generatedText.replace(pattern, linkHtml);
+            });
+        });
+    } else if (sourcesData.length > 0) {
+        // Generic fallback: map [n] markers found in text to available sources when possible
+        generatedText = generatedText.replace(/\[(\d+)\]/g, (match, p1) => {
+            const n = parseInt(p1, 10);
+            if (!isNaN(n) && n >= 1 && n <= sourcesData.length) {
+                const s = sourcesData[n - 1];
+                return `<a href="#" class="source-link pdf-viewer-link" data-pdf-url="${s.url}" data-pdf-page="${s.page}" data-pdf-snippet="${escapeHtml(s.snippet)}" data-pdf-title="${escapeHtml(s.docName)}" title="${s.title}">[${n}]</a>`;
+            }
+            return match;
+        });
+    }
+
     // For readability in the chat, append a plain Sources section in markdown if citations were detected
     if (usedSources.length > 0) {
         generatedText += '\n\n---\n\n**Sources:**\n\n';
@@ -745,7 +772,7 @@ function processGroundedResponse(generatedText, sources) {
     // Parse markdown first
     let htmlContent = marked.parse(generatedText);
 
-    // Inject clickable links for citations (replace all recognized variants)
+    // Inject clickable links for citations (replace all recognized variants) - backup pass on HTML
     if (usedSources.length > 0) {
         usedSources.forEach((used) => {
             const patterns = buildCitationPatterns(used.index);
