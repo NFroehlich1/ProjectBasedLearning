@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Supabase Edge Function to query Google Gemini AI
 // Allows users to ask questions about conversation transcripts
 
@@ -17,17 +18,21 @@ serve(async (req) => {
   try {
     console.log('=== Gemini Chat Function Started ===')
     
-    // Get API key from environment variable (try both naming conventions)
-    const apiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GEMINI-API-KEY')
+    // Get API keys from environment variable
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GEMINI-API-KEY')
+    const groqApiKey = Deno.env.get('GROQ_API_KEY')
+    const fallbackApiKey = Deno.env.get('FALLBACK_API_KEY')
     
-    console.log('API Key check:', apiKey ? `Found (${apiKey.substring(0, 10)}...)` : 'NOT FOUND')
+    console.log('Gemini API Key check:', geminiApiKey ? `Found (${geminiApiKey.substring(0, 10)}...)` : 'NOT FOUND')
+    console.log('Fallback API Key check:', fallbackApiKey ? `Found (${fallbackApiKey.substring(0, 10)}...)` : 'NOT FOUND')
+    console.log('Groq API Key check:', groqApiKey ? `Found (${groqApiKey.substring(0, 10)}...)` : 'NOT FOUND')
     
-    if (!apiKey) {
-      console.error('GEMINI_API_KEY or GEMINI-API-KEY environment variable is not set')
+    if (!geminiApiKey && !fallbackApiKey && !groqApiKey) {
+      console.error('No API keys found')
       return new Response(
         JSON.stringify({ 
-          error: 'Server configuration error: API key not found',
-          details: 'GEMINI_API_KEY or GEMINI-API-KEY secret is not configured'
+          error: 'Server configuration error: No API keys found',
+          details: 'Please set GEMINI_API_KEY or FALLBACK_API_KEY or GROQ_API_KEY in Supabase secrets'
         }),
         { 
           status: 500,
@@ -71,7 +76,7 @@ serve(async (req) => {
 Use this knowledge base to provide accurate, research-backed answers. Format your response in Markdown with proper headings, lists, and emphasis where appropriate.`
     
     // Build context sections
-    let contextSections = []
+    let contextSections: string[] = []
     
     // Add ElevenLabs conversation context if available
     if (conversationContext && conversationContext.trim() !== '') {
@@ -107,66 +112,85 @@ Use this knowledge base to provide accurate, research-backed answers. Format you
       'gemini-1.5-pro-latest',
       'gemini-pro'
     ]
-    
-    let response = null
-    let usedModel = ''
-    
-    for (const model of modelsToTry) {
-      console.log(`Trying model: ${model}`)
-      
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
-      
-      try {
-        response = await fetch(geminiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{
-                text: prompt
-              }]
-            }],
-            generationConfig: {
-              temperature: 0.7,
-              maxOutputTokens: 2048,
-            }
+
+    const tryModelsWithKey = async (apiKey: string): Promise<{ okResponse: Response | null; modelUsed: string }> => {
+      for (const model of modelsToTry) {
+        console.log(`Trying model: ${model}`)
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
+        try {
+          const res = await fetch(geminiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: prompt
+                }]
+              }],
+              generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 2048,
+              }
+            })
           })
-        })
-        
-        if (response.ok) {
-          usedModel = model
-          console.log(`✅ Success with model: ${model}`)
-          break
-        } else {
-          console.log(`❌ Model ${model} failed with status: ${response.status}`)
+          if (res.ok) {
+            console.log(`✅ Success with model: ${model}`)
+            return { okResponse: res, modelUsed: model }
+          } else {
+            console.log(`❌ Model ${model} failed with status: ${res.status}`)
+          }
+        } catch (error) {
+          // deno-lint-ignore no-explicit-any
+          const message = (error as any)?.message || String(error)
+          console.log(`❌ Model ${model} error:`, message)
         }
-      } catch (error) {
-        console.log(`❌ Model ${model} error:`, error.message)
+      }
+      return { okResponse: null, modelUsed: '' }
+    }
+
+    let finalResponse: Response | null = null
+    let usedModel = ''
+    let apiKeySource = ''
+
+    if (geminiApiKey) {
+      const primaryAttempt = await tryModelsWithKey(geminiApiKey)
+      if (primaryAttempt.okResponse) {
+        finalResponse = primaryAttempt.okResponse
+        usedModel = primaryAttempt.modelUsed
+        apiKeySource = 'primary'
       }
     }
-    
-    if (!response || !response.ok) {
-      const errorText = response ? await response.text() : 'No successful response from any model'
-      console.error('All Gemini models failed. Last error:', errorText)
-      
+
+    if (!finalResponse && fallbackApiKey) {
+      console.log('Primary key failed across models. Trying FALLBACK_API_KEY...')
+      const fallbackAttempt = await tryModelsWithKey(fallbackApiKey)
+      if (fallbackAttempt.okResponse) {
+        finalResponse = fallbackAttempt.okResponse
+        usedModel = fallbackAttempt.modelUsed
+        apiKeySource = 'fallback'
+      }
+    }
+
+    if (!finalResponse) {
+      console.error('All Gemini attempts failed with both primary and fallback API keys')
       return new Response(
         JSON.stringify({ 
-          error: `All Gemini models failed. Last status: ${response?.status || 'unknown'}`,
-          details: errorText,
+          error: 'All Gemini models failed with available API keys',
+          details: 'No successful response from any model using primary or fallback key',
           triedModels: modelsToTry
         }),
         { 
-          status: response?.status || 500,
+          status: 502,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
-    console.log('Gemini API response status:', response.status)
+    console.log('Gemini API response status:', finalResponse.status)
 
-    const data = await response.json()
+    const data = await finalResponse.json()
     console.log('Successfully fetched response from Gemini')
 
     // Extract the text from Gemini's response
@@ -185,7 +209,8 @@ Use this knowledge base to provide accurate, research-backed answers. Format you
     return new Response(
       JSON.stringify({ 
         answer: answerText,
-        model: usedModel || 'unknown'
+        model: usedModel || 'unknown',
+        apiKeySource
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

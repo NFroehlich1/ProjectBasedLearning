@@ -28,12 +28,13 @@ serve(async (req) => {
     
     // Get API keys
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GEMINI-API-KEY')
+    const groqApiKey = Deno.env.get('GROQ_API_KEY')
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://rcfgpdrrnhltozrnsgic.supabase.co'
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     
-    if (!geminiApiKey) {
+    if (!geminiApiKey && !groqApiKey) {
       return new Response(
-        JSON.stringify({ error: 'Missing GEMINI_API_KEY or GEMINI-API-KEY' }),
+        JSON.stringify({ error: 'Missing both GEMINI_API_KEY and GROQ_API_KEY' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -91,8 +92,8 @@ serve(async (req) => {
     
     const { data: matches, error: searchError } = await supabase.rpc('match_documents', {
       query_embedding: queryEmbedding,
-      match_threshold: 0.7,
-      match_count: 5
+      match_threshold: 0.65, // Lower threshold to find more sources
+      match_count: 10 // More sources for better answers
     })
 
     if (searchError) {
@@ -155,49 +156,90 @@ ${context
 
 Use Markdown formatting for better readability.`
 
-    // Step 5: Call Gemini API
-    console.log('Calling Gemini...')
-    
-    const models = ['gemini-2.0-flash-exp', 'gemini-1.5-flash-latest', 'gemini-1.5-flash']
-    let geminiResponse = null
+    // Step 5: Call AI API (Gemini first, Groq as fallback)
+    let generatedText = ''
     let usedModel = ''
 
-    for (const model of models) {
-      try {
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{
-                parts: [{ text: prompt }]
-              }],
-              generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 2048
-              }
-            })
-          }
-        )
+    // Try Gemini first
+    if (geminiApiKey) {
+      console.log('Trying Gemini...')
+      const models = ['gemini-2.0-flash-exp', 'gemini-1.5-flash-latest', 'gemini-1.5-flash']
+      
+      for (const model of models) {
+        try {
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [{ text: prompt }]
+                }],
+                generationConfig: {
+                  temperature: 0.7,
+                  maxOutputTokens: 2048
+                }
+              })
+            }
+          )
 
-        if (response.ok) {
-          geminiResponse = await response.json()
-          usedModel = model
-          console.log(`✅ Success with ${model}`)
-          break
+          if (response.ok) {
+            const geminiResponse = await response.json()
+            generatedText = geminiResponse.candidates[0].content.parts[0].text
+            usedModel = model
+            console.log(`✅ Success with Gemini ${model}`)
+            break
+          }
+        } catch (err) {
+          console.log(`Failed with Gemini ${model}:`, err)
         }
-      } catch (err) {
-        console.log(`Failed with ${model}`)
       }
     }
 
-    if (!geminiResponse) {
-      throw new Error('All Gemini models failed')
+    // Fallback to Groq if Gemini failed
+    if (!generatedText && groqApiKey) {
+      console.log('Gemini failed, trying Groq fallback...')
+      const groqModels = ['llama-3.3-70b-versatile', 'mixtral-8x7b-32768', 'llama-3.1-8b-instant']
+      
+      for (const model of groqModels) {
+        try {
+          const response = await fetch(
+            'https://api.groq.com/openai/v1/chat/completions',
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${groqApiKey}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                model: model,
+                messages: [{
+                  role: 'user',
+                  content: prompt
+                }],
+                temperature: 0.7,
+                max_tokens: 2048
+              })
+            }
+          )
+
+          if (response.ok) {
+            const groqResponse = await response.json()
+            generatedText = groqResponse.choices[0].message.content
+            usedModel = `groq-${model}`
+            console.log(`✅ Success with Groq ${model}`)
+            break
+          }
+        } catch (err) {
+          console.log(`Failed with Groq ${model}:`, err)
+        }
+      }
     }
 
-    // Extract answer
-    const generatedText = geminiResponse.candidates[0].content.parts[0].text
+    if (!generatedText) {
+      throw new Error('All AI models (Gemini + Groq) failed')
+    }
 
     // Step 6: Return structured response
     return new Response(

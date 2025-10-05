@@ -701,41 +701,84 @@ function generatePdfLink(source, index) {
 function processGroundedResponse(generatedText, sources) {
     // Store sources for later HTML injection
     const sourcesData = sources.map((source, index) => generatePdfLink(source, index + 1));
-    
-    // Find which sources are actually cited in the text
+
+    // Helper: build a set of regex patterns that commonly appear for a given citation index
+    function buildCitationPatterns(idx) {
+        const n = String(idx).replace(/[-/\\^$*+?.()|[\]{}]/g, '');
+        return [
+            new RegExp(`\\[\\s*${n}\\s*\\]`, 'g'),            // [1] or [ 1 ]
+            new RegExp(`\\(\\s*${n}\\s*\\)`, 'g'),            // (1)
+            new RegExp(`\\[\\^${n}\\]`, 'g'),                   // [^1]
+            new RegExp(`【\\s*${n}\\s*】`, 'g'),                  // 【1】 fullwidth brackets
+            new RegExp(`\\[\\s*Source\\s*${n}\\s*\\]`, 'gi'), // [Source 1]
+            new RegExp(`\\(\\s*Source\\s*${n}\\s*\\)`, 'gi'), // (Source 1)
+            new RegExp(`\\bSource\\s*${n}\\b`, 'gi'),            // Source 1
+            new RegExp(`\\bQuelle\\s*${n}\\b`, 'gi')             // German: Quelle 1
+        ];
+    }
+
+    // Find which sources are actually cited in the text (robust matching)
     const usedSources = [];
     sourcesData.forEach((link, index) => {
         const citationIndex = index + 1;
-        const citationPattern = new RegExp(`\\[${citationIndex}\\]`);
-        if (citationPattern.test(generatedText)) {
+        const patterns = buildCitationPatterns(citationIndex);
+        if (patterns.some(p => p.test(generatedText))) {
             usedSources.push({ ...link, index: citationIndex, source: sources[index] });
         }
     });
-    
-    // Add sources section at the end in markdown (only used sources)
+
+    // If model didn't include explicit markers, we'll still show a clickable Sources section later
+    const hasAnySources = sourcesData.length > 0;
+
+    // For readability in the chat, append a plain Sources section in markdown if citations were detected
     if (usedSources.length > 0) {
         generatedText += '\n\n---\n\n**Sources:**\n\n';
         usedSources.forEach((used) => {
             generatedText += `**[${used.index}]** ${used.source.document_name} - Page ${used.source.page_number}\n\n`;
         });
     }
-    
+
     // Parse markdown first
     let htmlContent = marked.parse(generatedText);
-    
-    // Now inject clickable links for citations (only for used sources)
-    usedSources.forEach((used) => {
-        const citationPattern = new RegExp(`\\[${used.index}\\]`, 'g');
-        const linkHtml = `<a href="#" 
-            class="source-link pdf-viewer-link" 
-            data-pdf-url="${used.url}" 
-            data-pdf-page="${used.page}" 
-            data-pdf-snippet="${escapeHtml(used.snippet)}" 
-            data-pdf-title="${escapeHtml(used.docName)}" 
-            title="${used.title}">[${used.index}]</a>`;
-        htmlContent = htmlContent.replace(citationPattern, linkHtml);
-    });
-    
+
+    // Inject clickable links for citations (replace all recognized variants)
+    if (usedSources.length > 0) {
+        usedSources.forEach((used) => {
+            const patterns = buildCitationPatterns(used.index);
+            const linkHtml = `<a href="#" 
+                class="source-link pdf-viewer-link" 
+                data-pdf-url="${used.url}" 
+                data-pdf-page="${used.page}" 
+                data-pdf-snippet="${escapeHtml(used.snippet)}" 
+                data-pdf-title="${escapeHtml(used.docName)}" 
+                title="${used.title}">[${used.index}]</a>`;
+            patterns.forEach((pattern) => {
+                htmlContent = htmlContent.replace(pattern, linkHtml);
+            });
+        });
+    } else if (hasAnySources) {
+        // Fallback: show a clickable Sources block even if inline markers are missing
+        const fallback = sourcesData.slice(0, Math.min(5, sourcesData.length)).map((link, i) => ({
+            ...link,
+            index: i + 1,
+            source: sources[i]
+        }));
+
+        let sourcesBlock = '<hr><p><strong>Sources:</strong></p><ul class="sources-list">';
+        fallback.forEach((used) => {
+            const linkHtml = `<a href="#" 
+                class="source-link pdf-viewer-link" 
+                data-pdf-url="${used.url}" 
+                data-pdf-page="${used.page}" 
+                data-pdf-snippet="${escapeHtml(used.snippet)}" 
+                data-pdf-title="${escapeHtml(used.docName)}" 
+                title="${used.title}">[${used.index}]</a>`;
+            sourcesBlock += `<li>${linkHtml} ${escapeHtml(used.source.document_name)} - Page ${used.source.page_number}</li>`;
+        });
+        sourcesBlock += '</ul>';
+        htmlContent += sourcesBlock;
+    }
+
     return htmlContent;
 }
 
