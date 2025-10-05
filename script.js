@@ -684,7 +684,11 @@ if (typeof pdfjsLib !== 'undefined') {
 function generatePdfLink(source, index) {
     // Use full content from source, not just snippet
     const fullText = source.content || source.text_snippet || '';
-    const textSnippet = fullText.trim();
+    // Limit snippet length and collapse whitespace to improve matching reliability
+    const textSnippet = (fullText || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 240);
     return {
         url: source.document_url,
         page: source.page_number,
@@ -1172,54 +1176,78 @@ async function highlightText(page, viewport, searchText) {
             fullText += ' '; // Add space between items
         });
         
-        // Find the search text (case-insensitive, flexible matching)
-        const searchTextClean = searchText.toLowerCase().replace(/\s+/g, ' ').trim();
-        const fullTextClean = fullText.toLowerCase();
-        
+        // Normalization helpers (remove diacritics, punctuation, collapse whitespace)
+        const normalize = (s) => (s || '')
+            .normalize('NFD').replace(/\p{Diacritic}+/gu, '')
+            .toLowerCase()
+            .replace(/[\u2010-\u2015]/g, '-') // various dashes to hyphen
+            .replace(/[“”«»„‟]/g, '"')
+            .replace(/[‘’‚‛]/g, "'")
+            .replace(/[^\p{L}\p{N}\s\-']/gu, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const fullTextClean = normalize(fullText);
+        const searchTextClean = normalize(searchText);
+
+        // Try exact normalized search
         let searchIndex = fullTextClean.indexOf(searchTextClean);
-        
-        // If exact match not found, try first 50 characters
-        if (searchIndex === -1 && searchTextClean.length > 50) {
-            const shortSearch = searchTextClean.substring(0, 50);
-            searchIndex = fullTextClean.indexOf(shortSearch);
+
+        // If exact match not found, try a shorter head of the snippet
+        if (searchIndex === -1 && searchTextClean.length > 40) {
+            const head = searchTextClean.slice(0, 40);
+            searchIndex = fullTextClean.indexOf(head);
         }
-        
-        // If still not found, try first 30 characters
-        if (searchIndex === -1 && searchTextClean.length > 30) {
-            const shortSearch = searchTextClean.substring(0, 30);
-            searchIndex = fullTextClean.indexOf(shortSearch);
+        if (searchIndex === -1 && searchTextClean.length > 24) {
+            const head = searchTextClean.slice(0, 24);
+            searchIndex = fullTextClean.indexOf(head);
         }
-        
-        if (searchIndex !== -1) {
-            const searchEndIndex = searchIndex + Math.min(searchTextClean.length, fullText.length - searchIndex);
-            
-            // Find all text items that overlap with the search range
+
+        const addHighlightForRange = (startIdx, endIdx) => {
             positions.forEach(pos => {
-                if (pos.endPos > searchIndex && pos.startPos < searchEndIndex) {
+                if (pos.endPos > startIdx && pos.startPos < endIdx) {
                     const tx = pdfjsLib.Util.transform(viewport.transform, pos.transform);
-                    
+                    const widthScaled = (pos.width || 0) * viewport.scale;
+                    const heightScaled = (pos.height || 0) * viewport.scale;
                     const highlight = document.createElement('div');
                     highlight.className = 'pdf-highlight';
                     highlight.style.left = tx[4] + 'px';
-                    highlight.style.top = (tx[5] - pos.height) + 'px';
-                    highlight.style.width = (pos.width * viewport.scale) + 'px';
-                    highlight.style.height = (pos.height * viewport.scale) + 'px';
-                    
+                    highlight.style.top = (tx[5] - heightScaled) + 'px';
+                    highlight.style.width = widthScaled + 'px';
+                    highlight.style.height = heightScaled + 'px';
                     highlightLayer.appendChild(highlight);
                 }
             });
-            
-            // Scroll to the first highlight
-            const firstHighlight = highlightLayer.querySelector('.pdf-highlight');
-            if (firstHighlight) {
-                setTimeout(() => {
-                    firstHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }, 300);
-            }
-            
-            console.log('✅ Text highlighted successfully');
+        };
+
+        if (searchIndex !== -1) {
+            const endIdx = searchIndex + Math.min(searchTextClean.length, fullTextClean.length - searchIndex);
+            addHighlightForRange(searchIndex, endIdx);
         } else {
-            console.log('⚠️ Text not found on this page');
+            // Fallback: keyword-based highlighting for a few distinctive words
+            const keywords = Array.from(new Set(searchTextClean.split(' ')))
+                .filter(w => w.length >= 5)
+                .slice(0, 6);
+            let highlightedAny = false;
+            keywords.forEach(word => {
+                const idx = fullTextClean.indexOf(word);
+                if (idx !== -1) {
+                    addHighlightForRange(idx, idx + word.length);
+                    highlightedAny = true;
+                }
+            });
+            if (!highlightedAny) {
+                console.log('⚠️ Text not found on this page');
+            }
+        }
+        
+        // Scroll to the first highlight if any
+        const firstHighlight = highlightLayer.querySelector('.pdf-highlight');
+        if (firstHighlight) {
+            setTimeout(() => {
+                firstHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+            console.log('✅ Highlight(s) rendered');
         }
         
     } catch (error) {
