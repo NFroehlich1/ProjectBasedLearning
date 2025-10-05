@@ -1375,17 +1375,17 @@ body {
 
 .pdf-highlight {
     position: absolute;
-    background: rgba(255, 235, 59, 0.6);
+    background: rgba(255, 235, 59, 0.3);
     border: 2px solid #fbbf24;
     border-radius: 3px;
     animation: highlightPulse 1.5s ease-in-out 3;
-    box-shadow: 0 0 15px rgba(251, 191, 36, 0.5);
+    box-shadow: 0 0 15px rgba(251, 191, 36, 0.3);
     pointer-events: none;
 }
 
 .pdf-highlight-info {
     padding: 20px 30px;
-    background: #fffbeb;
+    background: rgba(255, 251, 235, 0.7);
     border-top: 3px solid #fbbf24;
     max-height: 200px;
     overflow-y: auto;
@@ -1412,7 +1412,7 @@ body {
     font-weight: 400;
     border-left: 4px solid #fbbf24;
     padding-left: 15px;
-    background: white;
+    background: rgba(255, 255, 255, 0.8);
     padding: 12px 15px;
     border-radius: 4px;
 }
@@ -1423,7 +1423,7 @@ body {
 }
 
 .pdf-highlight-info::-webkit-scrollbar-track {
-    background: #fef3c7;
+    background: rgba(254, 243, 199, 0.6);
     border-radius: 4px;
 }
 
