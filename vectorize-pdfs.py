@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
 Script to vectorize PDFs and store embeddings in Supabase
-Uses OpenAI embeddings and PyPDF2 for text extraction
+Uses Google Gemini embeddings and PyPDF2 for text extraction
 """
 
 import os
 import sys
 from pathlib import Path
 import PyPDF2
-from openai import OpenAI
+import requests
 from supabase import create_client, Client
 from typing import List, Dict
 import time
@@ -16,12 +16,11 @@ import time
 # Configuration
 SUPABASE_URL = "https://rcfgpdrrnhltozrnsgic.supabase.co"
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")  # Service role key
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 STORAGE_BUCKET = "pdfs"  # Supabase storage bucket name
 
 # Initialize clients
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 # PDF files to process
 PDF_FILES = [
@@ -72,12 +71,26 @@ def extract_text_from_pdf(pdf_path: str) -> Dict[int, str]:
     return pages_text
 
 def generate_embedding(text: str) -> List[float]:
-    """Generate embedding using OpenAI API"""
-    response = openai_client.embeddings.create(
-        model="text-embedding-3-small",  # or "text-embedding-ada-002"
-        input=text
+    """Generate embedding using Google Gemini API"""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key={GEMINI_API_KEY}"
+    
+    response = requests.post(
+        url,
+        json={
+            "model": "models/text-embedding-004",
+            "content": {
+                "parts": [{
+                    "text": text
+                }]
+            }
+        }
     )
-    return response.data[0].embedding
+    
+    if response.status_code != 200:
+        raise Exception(f"Gemini API error: {response.status_code}")
+    
+    data = response.json()
+    return data['embedding']['values']
 
 def upload_pdf_to_storage(pdf_path: str, document_name: str) -> str:
     """Upload PDF to Supabase storage and return public URL"""
@@ -166,8 +179,8 @@ def main():
         print("❌ Error: SUPABASE_SERVICE_KEY environment variable not set")
         sys.exit(1)
     
-    if not OPENAI_API_KEY:
-        print("❌ Error: OPENAI_API_KEY environment variable not set")
+    if not GEMINI_API_KEY:
+        print("❌ Error: GEMINI_API_KEY environment variable not set")
         sys.exit(1)
     
     # Process all PDFs

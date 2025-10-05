@@ -707,19 +707,45 @@ async function sendAiQuestion() {
         });
         
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `Failed to get response: ${response.status}`);
+            // Fallback to regular chat if RAG fails
+            console.log('⚠️ RAG failed, using fallback to regular chat...');
+            
+            const fallbackResponse = await fetch(GEMINI_CONFIG.functionUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    conversationContext: '',
+                    userQuestion: question,
+                    chatHistory: aiChatHistory.slice(0, -1)
+                })
+            });
+            
+            if (!fallbackResponse.ok) {
+                throw new Error('Both RAG and fallback failed');
+            }
+            
+            const fallbackData = await fallbackResponse.json();
+            addAiChatMessage('assistant', fallbackData.answer);
+            aiChatHistory.push({ role: 'assistant', content: fallbackData.answer });
+            return;
         }
         
         const data = await response.json();
         console.log('✅ RAG response received with', data.num_sources, 'sources');
         
-        // Process response with source citations
-        const processedAnswer = processGroundedResponse(data.generated_text, data.sources || []);
-        
-        // Add assistant message to chat with clickable sources
-        addAiChatMessage('assistant', processedAnswer);
-        aiChatHistory.push({ role: 'assistant', content: data.generated_text });
+        // If no sources, use regular answer without citations
+        if (!data.sources || data.sources.length === 0) {
+            console.log('ℹ️ No sources found, displaying answer without citations');
+            addAiChatMessage('assistant', data.generated_text);
+            aiChatHistory.push({ role: 'assistant', content: data.generated_text });
+        } else {
+            // Process response with source citations
+            const processedAnswer = processGroundedResponse(data.generated_text, data.sources);
+            addAiChatMessage('assistant', processedAnswer);
+            aiChatHistory.push({ role: 'assistant', content: data.generated_text });
+        }
         
     } catch (error) {
         console.error('❌ Error:', error);

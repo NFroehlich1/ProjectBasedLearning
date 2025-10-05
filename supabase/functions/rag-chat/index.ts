@@ -27,13 +27,19 @@ serve(async (req) => {
     
     // Get API keys
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GEMINI-API-KEY')
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://rcfgpdrrnhltozrnsgic.supabase.co'
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     
-    if (!geminiApiKey || !openaiApiKey || !supabaseUrl || !supabaseServiceKey) {
+    if (!geminiApiKey) {
       return new Response(
-        JSON.stringify({ error: 'Missing required API keys' }),
+        JSON.stringify({ error: 'Missing GEMINI_API_KEY or GEMINI-API-KEY' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
+    if (!supabaseServiceKey) {
+      return new Response(
+        JSON.stringify({ error: 'Missing SUPABASE_SERVICE_ROLE_KEY' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -51,26 +57,32 @@ serve(async (req) => {
 
     console.log('Question:', userQuestion.substring(0, 100))
 
-    // Step 1: Generate embedding for the question
-    console.log('Generating embedding...')
-    const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'text-embedding-3-small',
-        input: userQuestion
-      })
-    })
+    // Step 1: Generate embedding for the question using Gemini
+    console.log('Generating embedding with Gemini...')
+    const embeddingResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${geminiApiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'models/text-embedding-004',
+          content: {
+            parts: [{
+              text: userQuestion
+            }]
+          }
+        })
+      }
+    )
 
     if (!embeddingResponse.ok) {
-      throw new Error(`Embedding API error: ${embeddingResponse.status}`)
+      throw new Error(`Gemini Embedding API error: ${embeddingResponse.status}`)
     }
 
     const embeddingData = await embeddingResponse.json()
-    const queryEmbedding = embeddingData.data[0].embedding
+    const queryEmbedding = embeddingData.embedding.values
 
     // Step 2: Perform similarity search
     console.log('Performing similarity search...')
@@ -109,11 +121,14 @@ serve(async (req) => {
     // Step 4: Build prompt with chat history
     let prompt = `You are an AI assistant specialized in Project-Based Learning.
 
-Use the following research excerpts to answer the question. Cite your sources using [1], [2], etc.
+You have access to comprehensive academic research including:
+- Krajcik & Blumenfeld 2006: PBL in Handbook of the Learning Sciences
+- Guo et al. 2020: PBL Review
+- Condliffe et al. 2017: PBL Review  
+- Blumenfeld et al. 1991: Motivating Project-Based Learning
+- Thomas 2000: Review of PBL
 
-## Research Context:
-${context}
-
+${context ? `## Research Excerpts:\n${context}\n` : ''}
 ## Chat History:
 ${chatHistory && chatHistory.length > 0 
   ? chatHistory.map((msg: any) => `${msg.role}: ${msg.content}`).join('\n') 
@@ -122,7 +137,10 @@ ${chatHistory && chatHistory.length > 0
 ## Current Question:
 ${userQuestion}
 
-Provide a clear answer with citations [1], [2], etc. referencing the sources above. Use Markdown formatting.`
+${context 
+  ? 'Provide a clear answer with citations [1], [2], etc. referencing the sources above.' 
+  : 'Provide a clear, research-informed answer based on your knowledge of Project-Based Learning.'
+} Use Markdown formatting.`
 
     // Step 5: Call Gemini API
     console.log('Calling Gemini...')
