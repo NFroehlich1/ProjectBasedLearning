@@ -824,23 +824,42 @@ body {
 .source-link {
     color: #8b5cf6;
     text-decoration: none;
-    font-weight: 600;
-    padding: 2px 4px;
-    border-radius: 3px;
+    font-weight: 700;
+    padding: 3px 7px;
+    border-radius: 6px;
     transition: all 0.2s ease;
+    background: #f3e8ff;
+    border: 1px solid #e9d5ff;
+    display: inline-block;
+    cursor: pointer;
 }
 
 .source-link:hover {
-    background: #f3e8ff;
-    text-decoration: underline;
+    background: #e9d5ff;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
 }
 
 .ai-chat-message.user .source-link {
     color: #fbbf24;
+    background: rgba(251, 191, 36, 0.2);
+    border-color: rgba(251, 191, 36, 0.3);
 }
 
 .ai-chat-message.user .source-link:hover {
-    background: rgba(251, 191, 36, 0.2);
+    background: rgba(251, 191, 36, 0.3);
+}
+
+/* Sources section styling */
+.ai-message-content hr {
+    border: none;
+    border-top: 2px solid #e9d5ff;
+    margin: 20px 0;
+}
+
+.ai-message-content hr + p strong {
+    color: #8b5cf6;
+    font-size: 1.1em;
 }
 
 /* Input Area */
@@ -1366,18 +1385,10 @@ body {
 
 .pdf-highlight-info {
     padding: 20px 30px;
-    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    background: #fffbeb;
     border-top: 3px solid #fbbf24;
-    animation: highlightPulse 2s ease-in-out infinite;
-}
-
-@keyframes highlightPulse {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.95;
-    }
+    max-height: 200px;
+    overflow-y: auto;
 }
 
 .pdf-highlight-info.hidden {
@@ -1387,16 +1398,42 @@ body {
 .pdf-highlight-info strong {
     color: #92400e;
     display: block;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     font-size: 1rem;
+    font-weight: 700;
 }
 
 .pdf-highlight-info p {
     margin: 0;
-    color: #78350f;
-    line-height: 1.7;
+    color: #1f2937;
+    line-height: 1.8;
     font-style: italic;
-    font-size: 0.95rem;
+    font-size: 0.98rem;
+    font-weight: 400;
+    border-left: 4px solid #fbbf24;
+    padding-left: 15px;
+    background: white;
+    padding: 12px 15px;
+    border-radius: 4px;
+}
+
+/* Scrollbar for highlight info */
+.pdf-highlight-info::-webkit-scrollbar {
+    width: 8px;
+}
+
+.pdf-highlight-info::-webkit-scrollbar-track {
+    background: #fef3c7;
+    border-radius: 4px;
+}
+
+.pdf-highlight-info::-webkit-scrollbar-thumb {
+    background: #fbbf24;
+    border-radius: 4px;
+}
+
+.pdf-highlight-info::-webkit-scrollbar-thumb:hover {
+    background: #f59e0b;
 }
 
 /* Responsive PDF Modal */

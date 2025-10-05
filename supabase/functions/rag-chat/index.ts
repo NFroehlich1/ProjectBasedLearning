@@ -11,6 +11,7 @@ const corsHeaders = {
 
 interface Source {
   text_snippet: string
+  content: string
   document_name: string
   document_url: string
   page_number: number
@@ -109,7 +110,8 @@ serve(async (req) => {
       matches.forEach((match: any, index: number) => {
         context += `[Source ${index + 1}] ${match.content}\n\n`
         sources.push({
-          text_snippet: match.content.substring(0, 150).trim(), // First 150 chars for link
+          text_snippet: match.content.substring(0, 150).trim(), // Short snippet for text highlighting
+          content: match.content, // Full content for citation display
           document_name: match.document_name,
           document_url: match.document_url,
           page_number: match.page_number,

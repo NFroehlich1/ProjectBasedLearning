@@ -623,6 +623,41 @@ function addAiChatMessage(role, content) {
 }
 
 /**
+ * Add a message with pre-rendered HTML to the AI chat view
+ */
+function addAiChatMessageHtml(role, htmlContent) {
+    const chatView = document.getElementById('aiChatView');
+    
+    // Remove placeholder if exists
+    const placeholder = chatView.querySelector('.chat-placeholder');
+    if (placeholder) {
+        placeholder.remove();
+    }
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `ai-chat-message ${role}`;
+    
+    const bubbleDiv = document.createElement('div');
+    bubbleDiv.className = 'ai-message-bubble';
+    
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'ai-message-label';
+    labelDiv.textContent = role === 'user' ? 'You' : 'AI Assistant';
+    
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'ai-message-content';
+    contentDiv.innerHTML = htmlContent; // Direct HTML injection
+    
+    bubbleDiv.appendChild(labelDiv);
+    bubbleDiv.appendChild(contentDiv);
+    messageDiv.appendChild(bubbleDiv);
+    chatView.appendChild(messageDiv);
+    
+    // Scroll to bottom
+    chatView.scrollTop = chatView.scrollHeight;
+}
+
+/**
  * PDF Viewer State
  */
 const pdfViewerState = {
@@ -647,11 +682,13 @@ if (typeof pdfjsLib !== 'undefined') {
  * Generate PDF hyperlink that opens in-app viewer
  */
 function generatePdfLink(source, index) {
-    const textSnippet = source.text_snippet.trim();
+    // Use full content from source, not just snippet
+    const fullText = source.content || source.text_snippet || '';
+    const textSnippet = fullText.trim();
     return {
         url: source.document_url,
         page: source.page_number,
-        snippet: textSnippet,
+        snippet: textSnippet, // Full text for display in citation box
         display: `[${index}]`,
         title: `${source.document_name} - Page ${source.page_number}`,
         docName: source.document_name
@@ -662,14 +699,23 @@ function generatePdfLink(source, index) {
  * Process grounded response with source citations
  */
 function processGroundedResponse(generatedText, sources) {
-    let processedText = generatedText;
+    // Store sources for later HTML injection
+    const sourcesData = sources.map((source, index) => generatePdfLink(source, index + 1));
     
-    // Replace citation markers [1], [2], etc. with clickable links
-    sources.forEach((source, index) => {
+    // Add sources section at the end in markdown
+    if (sources.length > 0) {
+        generatedText += '\n\n---\n\n**Sources:**\n\n';
+        sources.forEach((source, index) => {
+            generatedText += `**[${index + 1}]** ${source.document_name} - Page ${source.page_number}\n\n`;
+        });
+    }
+    
+    // Parse markdown first
+    let htmlContent = marked.parse(generatedText);
+    
+    // Now inject clickable links for citations
+    sourcesData.forEach((link, index) => {
         const citationIndex = index + 1;
-        const link = generatePdfLink(source, citationIndex);
-        
-        // Replace [1] with clickable link that opens PDF viewer
         const citationPattern = new RegExp(`\\[${citationIndex}\\]`, 'g');
         const linkHtml = `<a href="#" 
             class="source-link pdf-viewer-link" 
@@ -678,20 +724,10 @@ function processGroundedResponse(generatedText, sources) {
             data-pdf-snippet="${escapeHtml(link.snippet)}" 
             data-pdf-title="${escapeHtml(link.docName)}" 
             title="${link.title}">[${citationIndex}]</a>`;
-        processedText = processedText.replace(citationPattern, linkHtml);
+        htmlContent = htmlContent.replace(citationPattern, linkHtml);
     });
     
-    // Add sources section at the end
-    if (sources.length > 0) {
-        processedText += '\n\n---\n\n**Sources:**\n\n';
-        sources.forEach((source, index) => {
-            const link = generatePdfLink(source, index + 1);
-            processedText += `${link.display} [${source.document_name}](#) - Page ${source.page_number} `;
-            processedText += `[📄 Open](# "class:pdf-viewer-link" "data-pdf-url:${link.url}" "data-pdf-page:${link.page}" "data-pdf-snippet:${escapeHtml(link.snippet)}" "data-pdf-title:${escapeHtml(link.docName)}")\n\n`;
-        });
-    }
-    
-    return processedText;
+    return htmlContent;
 }
 
 /**
@@ -784,9 +820,9 @@ async function sendAiQuestion() {
             addAiChatMessage('assistant', data.generated_text);
             aiChatHistory.push({ role: 'assistant', content: data.generated_text });
         } else {
-            // Process response with source citations
+            // Process response with source citations (returns HTML)
             const processedAnswer = processGroundedResponse(data.generated_text, data.sources);
-            addAiChatMessage('assistant', processedAnswer);
+            addAiChatMessageHtml('assistant', processedAnswer);
             aiChatHistory.push({ role: 'assistant', content: data.generated_text });
         }
         
@@ -885,6 +921,7 @@ function initializePdfViewer() {
         });
     }
     
+    
     // Delegate event for PDF links
     document.body.addEventListener('click', (e) => {
         const pdfLink = e.target.closest('.pdf-viewer-link');
@@ -897,6 +934,28 @@ function initializePdfViewer() {
             openPdfViewer(url, page, snippet, title);
         }
     });
+}
+
+/**
+ * Scroll to the highlighted text in the PDF viewer
+ */
+function scrollToHighlight() {
+    const highlightLayer = document.getElementById('highlightLayer');
+    const firstHighlight = highlightLayer?.querySelector('.pdf-highlight');
+    
+    if (firstHighlight) {
+        firstHighlight.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center',
+            inline: 'center'
+        });
+        
+        // Flash animation to draw attention
+        firstHighlight.style.animation = 'none';
+        setTimeout(() => {
+            firstHighlight.style.animation = 'highlightPulse 1.5s ease-in-out 3';
+        }, 10);
+    }
 }
 
 /**
