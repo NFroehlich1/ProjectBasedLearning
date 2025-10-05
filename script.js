@@ -702,28 +702,37 @@ function processGroundedResponse(generatedText, sources) {
     // Store sources for later HTML injection
     const sourcesData = sources.map((source, index) => generatePdfLink(source, index + 1));
     
-    // Add sources section at the end in markdown
-    if (sources.length > 0) {
+    // Find which sources are actually cited in the text
+    const usedSources = [];
+    sourcesData.forEach((link, index) => {
+        const citationIndex = index + 1;
+        const citationPattern = new RegExp(`\\[${citationIndex}\\]`);
+        if (citationPattern.test(generatedText)) {
+            usedSources.push({ ...link, index: citationIndex, source: sources[index] });
+        }
+    });
+    
+    // Add sources section at the end in markdown (only used sources)
+    if (usedSources.length > 0) {
         generatedText += '\n\n---\n\n**Sources:**\n\n';
-        sources.forEach((source, index) => {
-            generatedText += `**[${index + 1}]** ${source.document_name} - Page ${source.page_number}\n\n`;
+        usedSources.forEach((used) => {
+            generatedText += `**[${used.index}]** ${used.source.document_name} - Page ${used.source.page_number}\n\n`;
         });
     }
     
     // Parse markdown first
     let htmlContent = marked.parse(generatedText);
     
-    // Now inject clickable links for citations
-    sourcesData.forEach((link, index) => {
-        const citationIndex = index + 1;
-        const citationPattern = new RegExp(`\\[${citationIndex}\\]`, 'g');
+    // Now inject clickable links for citations (only for used sources)
+    usedSources.forEach((used) => {
+        const citationPattern = new RegExp(`\\[${used.index}\\]`, 'g');
         const linkHtml = `<a href="#" 
             class="source-link pdf-viewer-link" 
-            data-pdf-url="${link.url}" 
-            data-pdf-page="${link.page}" 
-            data-pdf-snippet="${escapeHtml(link.snippet)}" 
-            data-pdf-title="${escapeHtml(link.docName)}" 
-            title="${link.title}">[${citationIndex}]</a>`;
+            data-pdf-url="${used.url}" 
+            data-pdf-page="${used.page}" 
+            data-pdf-snippet="${escapeHtml(used.snippet)}" 
+            data-pdf-title="${escapeHtml(used.docName)}" 
+            title="${used.title}">[${used.index}]</a>`;
         htmlContent = htmlContent.replace(citationPattern, linkHtml);
     });
     

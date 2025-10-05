@@ -127,7 +127,8 @@ IMPORTANT INSTRUCTIONS:
 - You have FULL ACCESS to all research excerpts provided below
 - NEVER say "I don't have access" or apologize for lack of access
 - Answer questions directly and confidently using the provided sources
-- Always cite sources using [1], [2], etc. when referencing specific information
+- Cite each source INDIVIDUALLY: use [1] [2] [3] NOT [1, 2, 3]
+- Only list sources in the Sources section that you actually cited in your answer
 - Be concise and professional
 
 ## Available Research Sources:
